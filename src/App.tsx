@@ -32,6 +32,9 @@ import {
   getReminderConfig,
   saveReminderConfig,
   triggerNotification,
+  isFocusModeActive,
+  detectMissingCriticalRecords,
+  CriticalMissingRecordResult,
 } from './utils/storage';
 import { getFertilityAlertForDay } from './utils/billingsEngine';
 import { Header, NavTab } from './components/Header';
@@ -51,6 +54,15 @@ import { MobileBottomNav } from './components/MobileBottomNav';
 import { MobileMoreDrawer } from './components/MobileMoreDrawer';
 import { GoogleDriveSyncModal } from './components/GoogleDriveSyncModal';
 import { OnboardingIntroSlides } from './components/OnboardingIntroSlides';
+import { CycleAnalysisDashboard } from './components/CycleAnalysisDashboard';
+import { DailyBillingsTipCard } from './components/DailyBillingsTipCard';
+import { SunsetThemeModal } from './components/SunsetThemeModal';
+import {
+  ThemePreference,
+  getSavedThemePreference,
+  shouldEnableDarkMode,
+  applyThemeToDOM,
+} from './utils/sunsetTheme';
 
 export default function App() {
   const [activeTab, setActiveTab] = useState<NavTab>('dashboard');
@@ -73,6 +85,7 @@ export default function App() {
   const [isReminderSettingsOpen, setIsReminderSettingsOpen] = useState(false);
   const [reminderConfig, setReminderConfig] = useState<DailyReminderConfig>(getReminderConfig());
   const [showReminderDueBanner, setShowReminderDueBanner] = useState(false);
+  const [catchUpAlert, setCatchUpAlert] = useState<CriticalMissingRecordResult | null>(null);
 
   // Calendar integration, Auto backup & Google Drive modal states
   const [isCalendarModalOpen, setIsCalendarModalOpen] = useState(false);
@@ -81,6 +94,11 @@ export default function App() {
 
   // Mobile More Drawer state
   const [isMoreMenuOpen, setIsMoreMenuOpen] = useState(false);
+
+  // Sunset Circadian Theme state
+  const [isThemeModalOpen, setIsThemeModalOpen] = useState(false);
+  const [themePreference, setThemePreference] = useState<ThemePreference>(() => getSavedThemePreference());
+  const [isDarkMode, setIsDarkMode] = useState<boolean>(() => shouldEnableDarkMode(getSavedThemePreference()).isDark);
 
   // Onboarding Intro Slides state (first-time detection or manual trigger)
   const [isOnboardingOpen, setIsOnboardingOpen] = useState(() => {
@@ -126,14 +144,19 @@ export default function App() {
       const isPastOrAtTime = currentTimeStr >= reminderConfig.time;
       const isAlreadyNotifiedToday = reminderConfig.lastNotifiedDate === todayDateStr;
 
-      if (isDayActive && !hasLoggedToday && isPastOrAtTime) {
+      const focusActive = isFocusModeActive(reminderConfig);
+      // In focus mode, night logging check-in is permitted only if allowCriticalNightLoggingReminders is enabled
+      const isNightReminderPermitted = !focusActive || (reminderConfig.focusMode?.allowCriticalNightLoggingReminders !== false);
+
+      if (isDayActive && !hasLoggedToday && isPastOrAtTime && isNightReminderPermitted) {
         setShowReminderDueBanner(true);
 
         if (!isAlreadyNotifiedToday && currentTimeStr === reminderConfig.time) {
           triggerNotification(
             'Billings Life — Lembrete de Registro Diário',
             reminderConfig.message || 'Hora de registrar no Billings Life: Como foi sua sensação vulvar hoje?',
-            reminderConfig.soundEnabled
+            reminderConfig.soundEnabled,
+            true // Marked as critical reminder
           );
 
           const updated = { ...reminderConfig, lastNotifiedDate: todayDateStr };
@@ -141,7 +164,7 @@ export default function App() {
           saveReminderConfig(updated);
         }
       } else {
-        if (hasLoggedToday) {
+        if (hasLoggedToday || (focusActive && reminderConfig.focusMode?.allowCriticalNightLoggingReminders === false)) {
           setShowReminderDueBanner(false);
         }
       }
@@ -151,6 +174,78 @@ export default function App() {
     const interval = setInterval(checkReminder, 30000);
     return () => clearInterval(interval);
   }, [reminderConfig, todayLog, todayDateStr]);
+
+  // Automatic Catch-Up Reminder Check for Missing Critical Records (> 24h)
+  useEffect(() => {
+    if (reminderConfig.catchUpReminder?.enabled === false) {
+      setCatchUpAlert(null);
+      return;
+    }
+
+    const checkCatchUp = () => {
+      const maxHours = reminderConfig.catchUpReminder?.maxHoursMissing || 24;
+      const missingResult = detectMissingCriticalRecords(currentCycle, maxHours);
+
+      if (missingResult) {
+        // Respect sub-toggles
+        if (
+          (missingResult.type === 'peak_mucus' && reminderConfig.catchUpReminder?.notifyMissingPeak === false) ||
+          (missingResult.type === 'luteal_end' && reminderConfig.catchUpReminder?.notifyMissingLutealEnd === false)
+        ) {
+          setCatchUpAlert(null);
+          return;
+        }
+
+        setCatchUpAlert(missingResult);
+
+        // If not already notified today for this catch-up, trigger native alert/chime
+        const isAlreadyNotifiedToday = reminderConfig.catchUpReminder?.lastCatchUpNotifiedDate === todayDateStr;
+        if (!isAlreadyNotifiedToday) {
+          triggerNotification(
+            missingResult.title,
+            missingResult.message,
+            reminderConfig.soundEnabled,
+            true // Marked as critical priority
+          );
+
+          const updated: DailyReminderConfig = {
+            ...reminderConfig,
+            catchUpReminder: {
+              ...(reminderConfig.catchUpReminder || {
+                enabled: true,
+                notifyMissingPeak: true,
+                notifyMissingLutealEnd: true,
+                maxHoursMissing: 24,
+              }),
+              lastCatchUpNotifiedDate: todayDateStr,
+            },
+          };
+          setReminderConfig(updated);
+          saveReminderConfig(updated);
+        }
+      } else {
+        setCatchUpAlert(null);
+      }
+    };
+
+    checkCatchUp();
+    const interval = setInterval(checkCatchUp, 60000);
+    return () => clearInterval(interval);
+  }, [reminderConfig, currentCycle, todayDateStr]);
+
+  // Automatic Sunset and Circadian Dark Mode evaluation
+  useEffect(() => {
+    const evaluateAndApplyTheme = () => {
+      const evaluation = shouldEnableDarkMode(themePreference);
+      setIsDarkMode(evaluation.isDark);
+      applyThemeToDOM(evaluation.isDark);
+    };
+
+    evaluateAndApplyTheme();
+    // Re-check every 60s as sunset approaches
+    const themeTimer = setInterval(evaluateAndApplyTheme, 60000);
+    return () => clearInterval(themeTimer);
+  }, [themePreference]);
 
   const handleUpdateGoal = (newGoal: GoalType) => {
     const updated = { ...profile, goal: newGoal, lastUpdated: new Date().toISOString() };
@@ -223,7 +318,7 @@ export default function App() {
   };
 
   return (
-    <div className="min-h-screen bg-[var(--app-bg)] text-[var(--app-text)] flex flex-col font-sans antialiased selection:bg-[#1B4332] dark:selection:bg-emerald-600 selection:text-white transition-colors">
+    <div className="min-h-screen bg-[#FAF8F5] text-stone-900 flex flex-col font-sans antialiased selection:bg-[#1B4332] selection:text-white">
       {/* Universal Top Navigation Header */}
       <Header
         activeTab={activeTab}
@@ -237,6 +332,10 @@ export default function App() {
         onOpenGoogleDriveSync={() => setIsGoogleDriveModalOpen(true)}
         reminderTime={reminderConfig.time}
         isReminderEnabled={reminderConfig.enabled}
+        isFocusModeActive={isFocusModeActive(reminderConfig)}
+        onOpenThemeModal={() => setIsThemeModalOpen(true)}
+        isDarkMode={isDarkMode}
+        themeMode={themePreference}
       />
 
       {/* Main Content Viewport with generous bottom padding for mobile tab bar */}
@@ -246,17 +345,26 @@ export default function App() {
           <div className="space-y-5 sm:space-y-6">
             {/* Scheduled Reminder Due Banner */}
             {showReminderDueBanner && !todayLog && (
-              <div className="bg-[#1B4332] dark:bg-emerald-950/70 border border-emerald-800 text-white rounded-2xl p-4 sm:p-5 shadow-sm flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+              <div className="bg-[#1B4332] text-white rounded-2xl p-4 sm:p-5 shadow-sm flex flex-col sm:flex-row sm:items-center justify-between gap-4">
                 <div className="flex items-center gap-3">
-                  <div className="w-10 h-10 rounded-xl bg-[#2D6A4F] dark:bg-emerald-800 flex items-center justify-center shrink-0 text-xl">
+                  <div className="w-10 h-10 rounded-xl bg-[#2D6A4F] flex items-center justify-center shrink-0 text-xl">
                     🌙
                   </div>
                   <div>
-                    <h4 className="text-xs sm:text-sm font-bold text-white">
-                      Hora de registrar suas observações de hoje ({reminderConfig.time})
-                    </h4>
+                    <div className="flex items-center gap-2 flex-wrap">
+                      <h4 className="text-xs sm:text-sm font-bold text-white">
+                        Hora de registrar suas observações de hoje ({reminderConfig.time})
+                      </h4>
+                      {isFocusModeActive(reminderConfig) && (
+                        <span className="text-[10px] uppercase font-bold tracking-wider px-2 py-0.5 rounded-md bg-amber-400 text-amber-950">
+                          Lembrete Crítico Preservado (Modo de Foco)
+                        </span>
+                      )}
+                    </div>
                     <p className="text-xs text-emerald-200 mt-0.5">
-                      Segundo o Método Billings, o fim do dia é o momento ideal para sintetizar a sensação mais fértil sentida ao longo das atividades cotidianas.
+                      {isFocusModeActive(reminderConfig)
+                        ? 'Notificações secundárias estão silenciadas pelo Modo de Foco para proteger sua privacidade, mantendo apenas este fechamento diário essencial.'
+                        : 'Segundo o Método Billings, o fim do dia é o momento ideal para sintetizar a sensação mais fértil sentida ao longo das atividades cotidianas.'}
                     </p>
                   </div>
                 </div>
@@ -278,6 +386,64 @@ export default function App() {
               </div>
             )}
 
+            {/* Automatic Catch-Up Reminder Banner for Missing Critical Records (> 24h) */}
+            {catchUpAlert && (
+              <div className="bg-gradient-to-r from-rose-950 via-rose-900 to-amber-950 text-white rounded-2xl p-4 sm:p-5 shadow-md border border-rose-500/50 space-y-3">
+                <div className="flex items-start justify-between gap-3">
+                  <div className="flex items-start gap-3">
+                    <div className="w-10 h-10 rounded-xl bg-white/10 text-rose-200 flex items-center justify-center shrink-0 border border-white/20 text-lg">
+                      ⚠️
+                    </div>
+                    <div>
+                      <div className="flex items-center gap-2 flex-wrap">
+                        <h4 className="text-xs sm:text-sm font-bold text-white">
+                          {catchUpAlert.title}
+                        </h4>
+                        <span className="text-[10px] font-bold px-2 py-0.5 rounded-md bg-rose-600 text-white uppercase tracking-wider">
+                          Pendente há mais de {catchUpAlert.hoursElapsed}h
+                        </span>
+                      </div>
+                      <p className="text-xs text-rose-100 mt-1 leading-relaxed">
+                        {catchUpAlert.message}
+                      </p>
+                      <p className="text-[11px] text-amber-200 mt-1">
+                        <strong>Impacto Clínico:</strong> {catchUpAlert.clinicalImportance}
+                      </p>
+                    </div>
+                  </div>
+
+                  <button
+                    onClick={() => setCatchUpAlert(null)}
+                    className="text-rose-300 hover:text-white p-1 rounded-lg text-xs cursor-pointer"
+                    title="Dispensar alerta de reposição temporariamente"
+                  >
+                    ✕
+                  </button>
+                </div>
+
+                <div className="flex flex-wrap items-center justify-between gap-2 pt-2 border-t border-white/10">
+                  <span className="text-[11px] text-rose-200 font-mono">
+                    Data pendente recomendada: <strong>{new Date(catchUpAlert.missingDate).toLocaleDateString('pt-BR')}</strong>
+                  </span>
+                  <div className="flex items-center gap-2">
+                    <button
+                      onClick={() => setCatchUpAlert(null)}
+                      className="px-3 py-1.5 text-xs text-rose-200 hover:text-white rounded-xl transition-colors cursor-pointer"
+                    >
+                      Depois
+                    </button>
+                    <button
+                      onClick={() => handleOpenNewLog(catchUpAlert.missingDate)}
+                      className="px-4 py-1.5 text-xs font-bold text-rose-950 bg-white hover:bg-rose-50 rounded-xl shadow-xs transition-colors cursor-pointer flex items-center gap-1.5"
+                    >
+                      <span>Repor Registro Pendente Agora</span>
+                      <span aria-hidden="true">→</span>
+                    </button>
+                  </div>
+                </div>
+              </div>
+            )}
+
             {/* Primary Advisory Banner for Today */}
             <FertilityAlertBanner
               todayLog={todayLog}
@@ -290,6 +456,23 @@ export default function App() {
               onOpenOnboardingIntro={() => setIsOnboardingOpen(true)}
             />
 
+            {/* Dica Educativa do Dia Baseada no Dia do Ciclo e Regra Atual */}
+            <DailyBillingsTipCard
+              cycleDay={currentCycleDayNumber}
+              todayLog={todayLog}
+              currentCycle={currentCycle}
+              profile={profile}
+              onOpenNewLog={() => handleOpenNewLog()}
+              onAskChatbot={(question) => {
+                setChatbotInitialQuestion(question);
+                setIsChatbotOpen(true);
+              }}
+              onOpenGuide={() => {
+                setActiveTab('guide');
+                window.scrollTo({ top: 0, behavior: 'smooth' });
+              }}
+            />
+
             {/* Quick Chart Strip View */}
             <StampChart
               cycles={cycles}
@@ -300,25 +483,31 @@ export default function App() {
               onEditLog={handleEditLog}
             />
 
+            {/* Cycle Analysis & Statistics (Recharts Bar Chart) */}
+            <CycleAnalysisDashboard
+              cycles={cycles}
+              profile={profile}
+            />
+
             {/* Feature Cards Grid (Clinical Continuity & Education) */}
             <div className="grid grid-cols-1 md:grid-cols-3 gap-4 sm:gap-5">
               {/* Card 1: AI Chatbot Consultation */}
               <div
                 onClick={() => setIsChatbotOpen(true)}
-                className="bg-white dark:bg-[#181D1B] rounded-2xl border border-stone-200/90 dark:border-stone-800 p-5 shadow-[0_2px_8px_rgba(28,61,47,0.03)] hover:border-[#1B4332] dark:hover:border-emerald-500 transition-all cursor-pointer flex flex-col justify-between group"
+                className="bg-white rounded-2xl border border-stone-200/90 p-5 shadow-[0_2px_8px_rgba(28,61,47,0.03)] hover:border-[#1B4332] transition-all cursor-pointer flex flex-col justify-between group"
               >
                 <div>
-                  <div className="w-10 h-10 rounded-xl bg-emerald-50 dark:bg-emerald-950/60 text-[#1B4332] dark:text-emerald-400 flex items-center justify-center mb-3 group-hover:scale-105 transition-transform border border-emerald-200/60 dark:border-emerald-800/60">
-                    <Sparkles className="w-5 h-5 text-amber-700 dark:text-amber-400" />
+                  <div className="w-10 h-10 rounded-xl bg-emerald-50 text-[#1B4332] flex items-center justify-center mb-3 group-hover:scale-105 transition-transform border border-emerald-200/60">
+                    <Sparkles className="w-5 h-5 text-amber-700" />
                   </div>
-                  <h3 className="text-sm font-serif font-bold text-stone-900 dark:text-stone-100 group-hover:text-[#1B4332] dark:group-hover:text-emerald-400 transition-colors">
+                  <h3 className="text-sm font-serif font-bold text-stone-900 group-hover:text-[#1B4332] transition-colors">
                     Dúvidas com Chatbot Gemini
                   </h3>
-                  <p className="text-xs text-stone-600 dark:text-stone-400 mt-1.5 leading-relaxed">
+                  <p className="text-xs text-stone-600 mt-1.5 leading-relaxed">
                     Tire dúvidas em tempo real sobre as 4 regras do Método Billings, identificação do PBI e interpretação de sensações com a IA.
                   </p>
                 </div>
-                <div className="mt-4 pt-3 border-t border-stone-100 dark:border-stone-800 flex items-center justify-between text-xs font-bold text-[#1B4332] dark:text-emerald-400">
+                <div className="mt-4 pt-3 border-t border-stone-100 flex items-center justify-between text-xs font-bold text-[#1B4332]">
                   <span>Abrir Chatbot</span>
                   <ArrowRight className="w-3.5 h-3.5 group-hover:translate-x-1 transition-transform" />
                 </div>
@@ -327,20 +516,20 @@ export default function App() {
               {/* Card 2: Cervical Mucus Image Analysis */}
               <div
                 onClick={() => setActiveTab('ai_analysis')}
-                className="bg-white dark:bg-[#181D1B] rounded-2xl border border-stone-200/90 dark:border-stone-800 p-5 shadow-[0_2px_8px_rgba(28,61,47,0.03)] hover:border-[#1B4332] dark:hover:border-blue-500 transition-all cursor-pointer flex flex-col justify-between group"
+                className="bg-white rounded-2xl border border-stone-200/90 p-5 shadow-[0_2px_8px_rgba(28,61,47,0.03)] hover:border-[#1B4332] transition-all cursor-pointer flex flex-col justify-between group"
               >
                 <div>
-                  <div className="w-10 h-10 rounded-xl bg-blue-50 dark:bg-blue-950/60 text-blue-700 dark:text-blue-300 flex items-center justify-center mb-3 group-hover:scale-105 transition-transform border border-blue-200/60 dark:border-blue-800/60">
+                  <div className="w-10 h-10 rounded-xl bg-blue-50 text-blue-700 flex items-center justify-center mb-3 group-hover:scale-105 transition-transform border border-blue-200/60">
                     <Droplets className="w-5 h-5" />
                   </div>
-                  <h3 className="text-sm font-serif font-bold text-stone-900 dark:text-stone-100 group-hover:text-[#1B4332] dark:group-hover:text-emerald-400 transition-colors">
+                  <h3 className="text-sm font-serif font-bold text-stone-900 group-hover:text-[#1B4332] transition-colors">
                     Laboratório de Muco por IA
                   </h3>
-                  <p className="text-xs text-stone-600 dark:text-stone-400 mt-1.5 leading-relaxed">
+                  <p className="text-xs text-stone-600 mt-1.5 leading-relaxed">
                     Envie fotografias do muco cervical para classificação visual de transparência, viscosidade e triagem de saúde vaginal.
                   </p>
                 </div>
-                <div className="mt-4 pt-3 border-t border-stone-100 dark:border-stone-800 flex items-center justify-between text-xs font-bold text-blue-800 dark:text-blue-400">
+                <div className="mt-4 pt-3 border-t border-stone-100 flex items-center justify-between text-xs font-bold text-blue-800">
                   <span>Acessar Análise</span>
                   <ArrowRight className="w-3.5 h-3.5 group-hover:translate-x-1 transition-transform" />
                 </div>
@@ -349,20 +538,20 @@ export default function App() {
               {/* Card 3: Google Drive & Clinical Report */}
               <div
                 onClick={() => setIsGoogleDriveModalOpen(true)}
-                className="bg-white dark:bg-[#181D1B] rounded-2xl border border-stone-200/90 dark:border-stone-800 p-5 shadow-[0_2px_8px_rgba(28,61,47,0.03)] hover:border-amber-600 dark:hover:border-amber-500 transition-all cursor-pointer flex flex-col justify-between group"
+                className="bg-white rounded-2xl border border-stone-200/90 p-5 shadow-[0_2px_8px_rgba(28,61,47,0.03)] hover:border-amber-600 transition-all cursor-pointer flex flex-col justify-between group"
               >
                 <div>
-                  <div className="w-10 h-10 rounded-xl bg-amber-50 dark:bg-amber-950/60 text-amber-700 dark:text-amber-400 flex items-center justify-center mb-3 group-hover:scale-105 transition-transform border border-amber-200/60 dark:border-amber-800/60">
-                    <Cloud className="w-5 h-5 text-amber-700 dark:text-amber-400" />
+                  <div className="w-10 h-10 rounded-xl bg-amber-50 text-amber-700 flex items-center justify-center mb-3 group-hover:scale-105 transition-transform border border-amber-200/60">
+                    <Cloud className="w-5 h-5 text-amber-700" />
                   </div>
-                  <h3 className="text-sm font-serif font-bold text-stone-900 dark:text-stone-100 group-hover:text-amber-800 dark:group-hover:text-amber-400 transition-colors">
+                  <h3 className="text-sm font-serif font-bold text-stone-900 group-hover:text-amber-800 transition-colors">
                     Nuvem Google Drive & Backup
                   </h3>
-                  <p className="text-xs text-stone-600 dark:text-stone-400 mt-1.5 leading-relaxed">
+                  <p className="text-xs text-stone-600 mt-1.5 leading-relaxed">
                     Sincronize seus ciclos com seu Google Drive seguro, baixe o prontuário em JSON ou imprima o relatório mensal em PDF.
                   </p>
                 </div>
-                <div className="mt-4 pt-3 border-t border-stone-100 dark:border-stone-800 flex items-center justify-between text-xs font-bold text-amber-900 dark:text-amber-400">
+                <div className="mt-4 pt-3 border-t border-stone-100 flex items-center justify-between text-xs font-bold text-amber-900">
                   <span>Sincronizar no Drive</span>
                   <ArrowRight className="w-3.5 h-3.5 group-hover:translate-x-1 transition-transform" />
                 </div>
@@ -455,6 +644,10 @@ export default function App() {
         onOpenAutoBackup={() => setIsAutoBackupModalOpen(true)}
         onOpenChatbot={() => setIsChatbotOpen(true)}
         reminderTime={reminderConfig.time}
+        isFocusModeActive={isFocusModeActive(reminderConfig)}
+        onOpenThemeModal={() => setIsThemeModalOpen(true)}
+        isDarkMode={isDarkMode}
+        themeMode={themePreference}
       />
 
       {/* Floating Chatbot Button (Positioned comfortably above mobile bottom bar) */}
@@ -555,11 +748,19 @@ export default function App() {
         }}
       />
 
+      {/* Sunset & Circadian Theme Modal */}
+      <SunsetThemeModal
+        isOpen={isThemeModalOpen}
+        onClose={() => setIsThemeModalOpen(false)}
+        currentTheme={themePreference}
+        onThemeChange={(newTheme) => setThemePreference(newTheme)}
+      />
+
       {/* Quiet Footer */}
-      <footer className="mt-auto border-t border-stone-200/90 dark:border-stone-800 bg-white dark:bg-[#181D1B] py-6 text-xs text-stone-500 dark:text-stone-400 no-print transition-colors">
+      <footer className="mt-auto border-t border-stone-200/90 bg-white py-6 text-xs text-stone-500 no-print">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 flex flex-col sm:flex-row items-center justify-between gap-4">
           <div className="flex items-center gap-2 flex-wrap">
-            <span className="font-serif font-bold text-stone-900 dark:text-stone-100">Billings Life</span>
+            <span className="font-serif font-bold text-stone-900">Billings Life</span>
             <span aria-hidden="true">·</span>
             <span>Método de Ovulação Billings (MOB)</span>
             <span aria-hidden="true">·</span>
@@ -568,14 +769,14 @@ export default function App() {
           <div className="flex items-center gap-4 text-[11px] flex-wrap">
             <button
               onClick={() => setIsOnboardingOpen(true)}
-              className="text-[#1B4332] dark:text-emerald-400 hover:underline cursor-pointer font-medium"
+              className="text-[#1B4332] hover:underline cursor-pointer font-medium"
             >
               Ver Apresentação
             </button>
             <span aria-hidden="true">·</span>
             <button
               onClick={() => setActiveTab('guide')}
-              className="text-[#1B4332] dark:text-emerald-400 hover:underline cursor-pointer font-medium"
+              className="text-[#1B4332] hover:underline cursor-pointer font-medium"
             >
               Manual das 4 Regras
             </button>

@@ -17,6 +17,20 @@ export const DEFAULT_REMINDER_CONFIG: import('../types/billings').DailyReminderC
   soundEnabled: true,
   daysOfWeek: [0, 1, 2, 3, 4, 5, 6], // Every day is required in Billings
   message: 'Hora de registrar no Billings Life: Como foi sua sensação vulvar ao longo das atividades de hoje?',
+  focusMode: {
+    enabled: false,
+    durationMode: 'manual',
+    silenceSounds: true,
+    allowCriticalPeakReminders: true,
+    allowCriticalNightLoggingReminders: true,
+    allowInfectionAlerts: true,
+  },
+  catchUpReminder: {
+    enabled: true,
+    notifyMissingPeak: true,
+    notifyMissingLutealEnd: true,
+    maxHoursMissing: 24,
+  },
 };
 
 export const DEFAULT_CLINICAL_PROFILE: ClinicalProfile = {
@@ -617,10 +631,55 @@ export function playReminderChime(): void {
 }
 
 /**
- * Sends a native browser notification if granted, or invokes fallback
+ * Checks whether Focus Mode is currently active and unexpired
  */
-export async function triggerNotification(title: string, body: string, soundEnabled = true): Promise<boolean> {
-  if (soundEnabled) {
+export function isFocusModeActive(config: import('../types/billings').DailyReminderConfig): boolean {
+  if (!config.focusMode || !config.focusMode.enabled) {
+    return false;
+  }
+
+  if (config.focusMode.durationMode === 'manual') {
+    return true;
+  }
+
+  if (!config.focusMode.activatedAt) {
+    return true;
+  }
+
+  const activatedTime = new Date(config.focusMode.activatedAt).getTime();
+  const now = Date.now();
+  let durationMs = 0;
+
+  if (config.focusMode.durationMode === '1h') durationMs = 60 * 60 * 1000;
+  else if (config.focusMode.durationMode === '8h') durationMs = 8 * 60 * 60 * 1000;
+  else if (config.focusMode.durationMode === '24h') durationMs = 24 * 60 * 60 * 1000;
+
+  return now < (activatedTime + durationMs);
+}
+
+/**
+ * Sends a native browser notification if granted, or invokes fallback
+ * Respects Focus Mode during sensitive data entry moments
+ */
+export async function triggerNotification(
+  title: string,
+  body: string,
+  soundEnabled = true,
+  isCritical = false
+): Promise<boolean> {
+  const currentConfig = getReminderConfig();
+  const focusActive = isFocusModeActive(currentConfig);
+
+  // If focus mode is active and this is NOT a critical reminder, suppress it
+  if (focusActive && !isCritical) {
+    console.log('[Billings Life] Notificação suprimida pelo Modo de Foco (Alta Sensibilidade)');
+    return false;
+  }
+
+  // If focus mode silences sounds, override soundEnabled
+  const shouldPlaySound = focusActive && currentConfig.focusMode?.silenceSounds ? false : soundEnabled;
+
+  if (shouldPlaySound) {
     playReminderChime();
   }
 
@@ -639,6 +698,110 @@ export async function triggerNotification(title: string, body: string, soundEnab
     }
   }
   return false;
+}
+
+export interface CriticalMissingRecordResult {
+  isMissing: boolean;
+  type: 'peak_mucus' | 'luteal_end' | 'general';
+  missingDate: string;
+  hoursElapsed: number;
+  title: string;
+  message: string;
+  clinicalImportance: string;
+}
+
+/**
+ * Detects whether an important record (such as peak mucus transition or end of luteal phase)
+ * has been missing for more than maxHours (e.g. 24h).
+ */
+export function detectMissingCriticalRecords(
+  cycle: Cycle | undefined,
+  maxHours = 24
+): CriticalMissingRecordResult | null {
+  if (!cycle || cycle.isFinished || !cycle.logs || cycle.logs.length === 0) {
+    return null;
+  }
+
+  const today = new Date();
+  const todayDateStr = today.toISOString().split('T')[0];
+
+  // Sort logs chronologically
+  const sortedLogs = [...cycle.logs].sort((a, b) => a.date.localeCompare(b.date));
+  const latestLog = sortedLogs[sortedLogs.length - 1];
+
+  if (!latestLog) return null;
+
+  // If already logged today, no record is missing
+  if (latestLog.date === todayDateStr) {
+    return null;
+  }
+
+  // Calculate elapsed hours from the latest log date (assuming standard evening evaluation at 21:00)
+  const lastLogDate = new Date(latestLog.date + 'T21:00:00');
+  const elapsedMs = today.getTime() - lastLogDate.getTime();
+  const hoursElapsed = Math.max(1, Math.floor(elapsedMs / (1000 * 60 * 60)));
+
+  if (hoursElapsed < maxHours) {
+    return null;
+  }
+
+  // Calculate the target missing date (yesterday if missing, otherwise today)
+  const yesterday = new Date(today);
+  yesterday.setDate(yesterday.getDate() - 1);
+  const yesterdayDateStr = yesterday.toISOString().split('T')[0];
+
+  const hasLogYesterday = sortedLogs.some((l) => l.date === yesterdayDateStr);
+  const targetMissingDate = hasLogYesterday ? todayDateStr : yesterdayDateStr;
+
+  // Case 1: Missing Peak Mucus / Post-Peak transition
+  const hadFertileMucus =
+    latestLog.sensation === 'lubrificada' ||
+    latestLog.sensation === 'escorregadia' ||
+    latestLog.sensation === 'molhada' ||
+    latestLog.sensation === 'umida' ||
+    latestLog.appearance === 'transparente_clara_ovo' ||
+    latestLog.appearance === 'elastico_filante' ||
+    latestLog.stamp === 'white_baby' ||
+    latestLog.isPeak ||
+    latestLog.postPeakCount === 1 ||
+    latestLog.postPeakCount === 2;
+
+  if (hadFertileMucus) {
+    return {
+      isMissing: true,
+      type: 'peak_mucus',
+      missingDate: targetMissingDate,
+      hoursElapsed,
+      title: 'Reposição Crítica: Pico de Muco / Ápice Faltante (> 24h)',
+      message: `Você registrou muco fértil no D${latestLog.cycleDay} (${new Date(latestLog.date).toLocaleDateString('pt-BR')}), mas seu registro está pendente há mais de ${hoursElapsed}h. É fundamental registrar para confirmar se o Ápice ocorreu ou se a contagem 1-2-3 começou.`,
+      clinicalImportance: 'A perda de um registro na janela do Ápice compromete a determinação do fim da fertilidade e invalida a regra dos 3 dias pós-ápice.',
+    };
+  }
+
+  // Case 2: Missing End of Luteal Phase
+  const peakDay = cycle.peakDayIndex || sortedLogs.find((l) => l.isPeak)?.cycleDay;
+  if (peakDay && latestLog.cycleDay >= peakDay + 11) {
+    return {
+      isMissing: true,
+      type: 'luteal_end',
+      missingDate: targetMissingDate,
+      hoursElapsed,
+      title: 'Reposição Crítica: Fim de Fase Lútea Faltante (> 24h)',
+      message: `Seu ciclo está no D${latestLog.cycleDay} (${latestLog.cycleDay - peakDay} dias pós-ápice). Sem registro há mais de ${hoursElapsed}h: por favor, anote se houve início de menstruação (novo ciclo) ou persistência de secura.`,
+      clinicalImportance: 'O encerramento correto da fase lútea comprova a suficiência progestogênica (11 a 16 dias) ou indica gravidez caso ultrapasse 18 dias.',
+    };
+  }
+
+  // Case 3: General missing record in active cycle (> 24h)
+  return {
+    isMissing: true,
+    type: 'general',
+    missingDate: targetMissingDate,
+    hoursElapsed,
+    title: 'Lembrete de Reposição de Registro (> 24h)',
+    message: `Seu último registro no ciclo #${cycle.cycleNumber} foi feito há mais de ${hoursElapsed}h. Reponha suas observações para manter o prontuário contínuo.`,
+    clinicalImportance: 'O Método Billings depende da observação diária contínua para aplicação segura das regras.',
+  };
 }
 
 /**

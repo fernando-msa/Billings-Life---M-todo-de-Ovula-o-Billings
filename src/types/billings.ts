@@ -100,6 +100,24 @@ export interface ClinicalProfile {
   lastUpdated: string;
 }
 
+export interface FocusModeConfig {
+  enabled: boolean;
+  durationMode: 'manual' | '1h' | '8h' | '24h';
+  activatedAt?: string;
+  silenceSounds: boolean;
+  allowCriticalPeakReminders: boolean;
+  allowCriticalNightLoggingReminders: boolean;
+  allowInfectionAlerts: boolean;
+}
+
+export interface CatchUpReminderConfig {
+  enabled: boolean;
+  notifyMissingPeak: boolean; // Notifica se faltar observação de pico de muco ou contagem 1-2-3
+  notifyMissingLutealEnd: boolean; // Notifica se a fase lútea estiver no fim sem encerramento
+  maxHoursMissing: number; // Intervalo de horas sem registro (padrão: 24h)
+  lastCatchUpNotifiedDate?: string;
+}
+
 export interface DailyReminderConfig {
   enabled: boolean;
   time: string; // HH:mm format, e.g. "21:30"
@@ -107,6 +125,8 @@ export interface DailyReminderConfig {
   daysOfWeek: number[]; // 0 to 6 (all 7 days for MOB by default)
   lastNotifiedDate?: string; // YYYY-MM-DD
   message: string;
+  focusMode?: FocusModeConfig;
+  catchUpReminder?: CatchUpReminderConfig;
 }
 
 export interface FertilityAlert {
