@@ -70,19 +70,18 @@ export const CalendarIntegrationModal: React.FC<CalendarIntegrationModalProps> =
     setIsSigningIn(true);
     setStatusMessage(null);
     try {
-      const res = await googleSignIn();
-      if (res) {
-        setCurrentUser(res.user);
-        setAccessToken(res.accessToken);
-        setStatusMessage({
-          type: 'success',
-          text: `Conectado como ${res.user.displayName || res.user.email}!`,
-        });
-      }
+      const { user, token } = await googleSignIn();
+      setCurrentUser(user);
+      setAccessToken(token);
+      setStatusMessage({
+        type: 'success',
+        text: `Conectado com sucesso como ${user.displayName || user.email}!`,
+      });
     } catch (err: any) {
+      console.error('Google Sign-in failed:', err);
       setStatusMessage({
         type: 'error',
-        text: err.message || 'Falha ao autenticar com a conta Google.',
+        text: `Falha na autenticação Google: ${err.message}`,
       });
     } finally {
       setIsSigningIn(false);
@@ -93,29 +92,27 @@ export const CalendarIntegrationModal: React.FC<CalendarIntegrationModalProps> =
     await googleLogout();
     setCurrentUser(null);
     setAccessToken(null);
-    setStatusMessage({ type: 'success', text: 'Desconectado do Google Calendar.' });
+    setStatusMessage({
+      type: 'success',
+      text: 'Desconectado da Conta Google com sucesso.',
+    });
   };
 
   const handleSyncReminder = async () => {
     if (!accessToken) return;
 
-    const confirmed = window.confirm(
-      `Deseja adicionar o lembrete diário das ${reminderConfig.time} ao seu Google Calendar primário?`
-    );
-    if (!confirmed) return;
-
     setIsSyncingReminder(true);
     setStatusMessage(null);
     try {
-      await syncDailyReminderToGoogleCalendar(accessToken, reminderConfig.time);
+      const res = await syncDailyReminderToGoogleCalendar(accessToken, reminderConfig);
       setStatusMessage({
         type: 'success',
-        text: `Lembrete diário recorrente das ${reminderConfig.time} adicionado com sucesso ao seu Google Calendar!`,
+        text: `Lembrete diário às ${reminderConfig.time} criado com sucesso no seu Google Calendar!`,
       });
     } catch (err: any) {
       setStatusMessage({
         type: 'error',
-        text: `Erro ao criar lembrete: ${err.message}`,
+        text: `Erro ao sincronizar lembrete: ${err.message}`,
       });
     } finally {
       setIsSyncingReminder(false);
@@ -164,63 +161,63 @@ export const CalendarIntegrationModal: React.FC<CalendarIntegrationModalProps> =
   );
 
   return (
-    <div className="fixed inset-0 z-50 overflow-y-auto bg-slate-900/60 backdrop-blur-xs flex items-center justify-center p-4">
-      <div className="bg-white w-full max-w-2xl rounded-2xl shadow-xl border border-slate-200 overflow-hidden my-8">
+    <div className="fixed inset-0 z-50 overflow-y-auto bg-stone-900/60 dark:bg-black/75 backdrop-blur-xs flex items-center justify-center p-4 transition-colors">
+      <div className="bg-white dark:bg-[#181D1B] w-full max-w-2xl rounded-2xl shadow-xl border border-stone-200 dark:border-stone-800 overflow-hidden my-8 transition-colors">
         {/* Header */}
-        <div className="px-6 py-4 border-b border-slate-200 flex items-center justify-between bg-slate-50/70">
+        <div className="px-5 sm:px-6 py-4 border-b border-stone-200 dark:border-stone-800 flex items-center justify-between bg-stone-50/70 dark:bg-stone-900/60">
           <div className="flex items-center gap-2.5">
-            <div className="p-2 bg-emerald-100 text-emerald-800 rounded-lg">
+            <div className="p-2 bg-emerald-100 dark:bg-emerald-950/70 text-emerald-800 dark:text-emerald-300 rounded-xl">
               <Calendar className="w-5 h-5" />
             </div>
             <div>
-              <h3 className="text-base font-bold text-slate-900">
+              <h3 className="text-base font-serif font-bold text-stone-900 dark:text-stone-100">
                 Integração com Calendários (Google & Apple)
               </h3>
-              <p className="text-xs text-slate-500">
+              <p className="text-xs text-stone-500 dark:text-stone-400">
                 Sincronize lembretes diários e marcos de fertilidade com seu celular (Android & iOS)
               </p>
             </div>
           </div>
           <button
             onClick={onClose}
-            className="p-1.5 rounded-lg text-slate-400 hover:text-slate-700 hover:bg-slate-200/50 transition-colors cursor-pointer"
+            className="p-1.5 rounded-lg text-stone-400 hover:text-stone-700 dark:hover:text-stone-200 hover:bg-stone-200/50 dark:hover:bg-stone-800 transition-colors cursor-pointer"
           >
             <X className="w-5 h-5" />
           </button>
         </div>
 
         {/* Content */}
-        <div className="p-6 space-y-6 max-h-[75vh] overflow-y-auto">
+        <div className="p-5 sm:p-6 space-y-6 max-h-[75vh] overflow-y-auto">
           {/* Feedback message banner */}
           {statusMessage && (
             <div
               className={`p-3.5 rounded-xl border text-xs font-semibold flex items-center gap-2 ${
                 statusMessage.type === 'success'
-                  ? 'bg-emerald-50 border-emerald-300 text-emerald-950'
-                  : 'bg-rose-50 border-rose-300 text-rose-950'
+                  ? 'bg-emerald-50 dark:bg-emerald-950/60 border-emerald-300 dark:border-emerald-800 text-emerald-950 dark:text-emerald-200'
+                  : 'bg-rose-50 dark:bg-rose-950/60 border-rose-300 dark:border-rose-800 text-rose-950 dark:text-rose-200'
               }`}
             >
               {statusMessage.type === 'success' ? (
-                <CheckCircle2 className="w-4 h-4 text-emerald-700 shrink-0" />
+                <CheckCircle2 className="w-4 h-4 text-emerald-700 dark:text-emerald-400 shrink-0" />
               ) : (
-                <AlertCircle className="w-4 h-4 text-rose-700 shrink-0" />
+                <AlertCircle className="w-4 h-4 text-rose-700 dark:text-rose-400 shrink-0" />
               )}
               <span>{statusMessage.text}</span>
             </div>
           )}
 
           {/* Section 1: Google Calendar (Android & Web) */}
-          <div className="p-5 rounded-xl border border-slate-200 bg-slate-50/50 space-y-4">
+          <div className="p-4 sm:p-5 rounded-2xl border border-stone-200 dark:border-stone-800 bg-stone-50/50 dark:bg-stone-900/40 space-y-4">
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-2.5">
-                <div className="w-8 h-8 rounded-lg bg-blue-600 text-white flex items-center justify-center font-bold text-sm shadow-xs">
+                <div className="w-8 h-8 rounded-xl bg-blue-600 text-white flex items-center justify-center font-bold text-sm shadow-xs">
                   G
                 </div>
                 <div>
-                  <strong className="text-sm font-bold text-slate-900 block">
+                  <strong className="text-sm font-bold text-stone-900 dark:text-stone-100 block">
                     Google Calendar (Android / Web)
                   </strong>
-                  <span className="text-xs text-slate-500">
+                  <span className="text-xs text-stone-500 dark:text-stone-400">
                     Sincronização direta na nuvem via Google Workspace API
                   </span>
                 </div>
@@ -229,7 +226,7 @@ export const CalendarIntegrationModal: React.FC<CalendarIntegrationModalProps> =
               {currentUser && (
                 <button
                   onClick={handleLogout}
-                  className="inline-flex items-center gap-1 text-xs text-slate-500 hover:text-rose-600 font-medium transition-colors cursor-pointer"
+                  className="inline-flex items-center gap-1 text-xs text-stone-500 hover:text-rose-600 font-medium transition-colors cursor-pointer"
                 >
                   <LogOut className="w-3.5 h-3.5" />
                   <span>Desconectar</span>
@@ -239,7 +236,7 @@ export const CalendarIntegrationModal: React.FC<CalendarIntegrationModalProps> =
 
             {!currentUser ? (
               <div className="space-y-3 pt-1">
-                <p className="text-xs text-slate-600 leading-relaxed">
+                <p className="text-xs text-stone-600 dark:text-stone-300 leading-relaxed">
                   Conecte sua Conta Google para sincronizar automaticamente os lembretes diários e eventos do ciclo diretamente no aplicativo Google Agenda do seu celular Android.
                 </p>
 
@@ -248,7 +245,7 @@ export const CalendarIntegrationModal: React.FC<CalendarIntegrationModalProps> =
                   type="button"
                   onClick={handleSignInGoogle}
                   disabled={isSigningIn}
-                  className="w-full flex items-center justify-center gap-3 px-4 py-2.5 bg-white hover:bg-slate-50 text-slate-700 border border-slate-300 rounded-lg font-medium text-xs shadow-xs transition-colors cursor-pointer disabled:opacity-50"
+                  className="w-full flex items-center justify-center gap-3 px-4 py-2.5 bg-white dark:bg-stone-800 hover:bg-stone-50 dark:hover:bg-stone-750 text-stone-700 dark:text-stone-200 border border-stone-300 dark:border-stone-700 rounded-xl font-medium text-xs shadow-xs transition-colors cursor-pointer disabled:opacity-50"
                 >
                   {isSigningIn ? (
                     <>
@@ -282,7 +279,7 @@ export const CalendarIntegrationModal: React.FC<CalendarIntegrationModalProps> =
               </div>
             ) : (
               <div className="space-y-3 pt-1">
-                <div className="flex items-center gap-2 text-xs text-slate-700 bg-white p-2.5 rounded-lg border border-slate-200">
+                <div className="flex items-center gap-2 text-xs text-stone-700 dark:text-stone-300 bg-white dark:bg-stone-850 p-2.5 rounded-xl border border-stone-200 dark:border-stone-800">
                   <span className="w-2 h-2 rounded-full bg-emerald-600" />
                   <span>
                     Conectado: <strong>{currentUser.email}</strong>
@@ -293,7 +290,7 @@ export const CalendarIntegrationModal: React.FC<CalendarIntegrationModalProps> =
                   <button
                     onClick={handleSyncReminder}
                     disabled={isSyncingReminder}
-                    className="flex items-center justify-center gap-2 px-3 py-2 text-xs font-semibold text-white bg-slate-900 hover:bg-slate-800 rounded-lg shadow-xs transition-colors cursor-pointer disabled:opacity-50"
+                    className="flex items-center justify-center gap-2 px-3 py-2 text-xs font-semibold text-white bg-stone-900 dark:bg-emerald-700 hover:bg-stone-800 dark:hover:bg-emerald-600 rounded-xl shadow-xs transition-colors cursor-pointer disabled:opacity-50"
                   >
                     {isSyncingReminder ? (
                       <RefreshCw className="w-3.5 h-3.5 animate-spin" />
@@ -306,12 +303,12 @@ export const CalendarIntegrationModal: React.FC<CalendarIntegrationModalProps> =
                   <button
                     onClick={handleSyncMilestones}
                     disabled={isSyncingMilestones}
-                    className="flex items-center justify-center gap-2 px-3 py-2 text-xs font-semibold text-slate-800 bg-white hover:bg-slate-100 border border-slate-300 rounded-lg shadow-xs transition-colors cursor-pointer disabled:opacity-50"
+                    className="flex items-center justify-center gap-2 px-3 py-2 text-xs font-semibold text-stone-800 dark:text-stone-200 bg-white dark:bg-stone-800 hover:bg-stone-100 dark:hover:bg-stone-750 border border-stone-300 dark:border-stone-700 rounded-xl shadow-xs transition-colors cursor-pointer disabled:opacity-50"
                   >
                     {isSyncingMilestones ? (
                       <RefreshCw className="w-3.5 h-3.5 animate-spin" />
                     ) : (
-                      <Sparkles className="w-3.5 h-3.5 text-emerald-700" />
+                      <Sparkles className="w-3.5 h-3.5 text-emerald-700 dark:text-emerald-400" />
                     )}
                     <span>Sincronizar Marcos do Ciclo #{cycle.cycleNumber}</span>
                   </button>
@@ -321,29 +318,29 @@ export const CalendarIntegrationModal: React.FC<CalendarIntegrationModalProps> =
           </div>
 
           {/* Section 2: Apple Calendar (iOS / iPhone / iPad / Mac) & Universal .ics */}
-          <div className="p-5 rounded-xl border border-slate-200 bg-slate-50/50 space-y-4">
+          <div className="p-4 sm:p-5 rounded-2xl border border-stone-200 dark:border-stone-800 bg-stone-50/50 dark:bg-stone-900/40 space-y-4">
             <div className="flex items-center gap-2.5">
-              <div className="w-8 h-8 rounded-lg bg-slate-900 text-white flex items-center justify-center font-bold text-sm shadow-xs">
+              <div className="w-8 h-8 rounded-xl bg-stone-900 dark:bg-stone-800 text-white flex items-center justify-center font-bold text-sm shadow-xs">
                 
               </div>
               <div>
-                <strong className="text-sm font-bold text-slate-900 block">
+                <strong className="text-sm font-bold text-stone-900 dark:text-stone-100 block">
                   Apple Calendar (iOS / iPhone / iPad / Mac)
                 </strong>
-                <span className="text-xs text-slate-500">
+                <span className="text-xs text-stone-500 dark:text-stone-400">
                   Importação nativa universal via arquivo padrão iCalendar (.ics)
                 </span>
               </div>
             </div>
 
-            <p className="text-xs text-slate-600 leading-relaxed">
+            <p className="text-xs text-stone-600 dark:text-stone-300 leading-relaxed">
               Gere um arquivo universal com o lembrete noturno diário e os marcos do Método Billings. No iPhone ou iPad, ao baixar o arquivo, o app <strong>Calendário da Apple</strong> se abrirá automaticamente com o botão &ldquo;Adicionar Tudo&rdquo;.
             </p>
 
             <div className="flex flex-col sm:flex-row gap-2">
               <button
                 onClick={handleDownloadAppleICS}
-                className="flex-1 inline-flex items-center justify-center gap-2 px-4 py-2.5 text-xs font-bold text-white bg-emerald-700 hover:bg-emerald-800 rounded-lg shadow-xs transition-colors cursor-pointer"
+                className="flex-1 inline-flex items-center justify-center gap-2 px-4 py-2.5 text-xs font-bold text-white bg-[#1B4332] dark:bg-emerald-700 hover:bg-[#2D6A4F] dark:hover:bg-emerald-600 rounded-xl shadow-xs transition-colors cursor-pointer"
               >
                 <Download className="w-3.5 h-3.5" />
                 <span>Exportar para Apple Calendar (.ics)</span>
@@ -353,17 +350,17 @@ export const CalendarIntegrationModal: React.FC<CalendarIntegrationModalProps> =
                 href={gcalWebUrl}
                 target="_blank"
                 rel="noreferrer"
-                className="inline-flex items-center justify-center gap-1.5 px-4 py-2.5 text-xs font-medium text-slate-700 bg-white border border-slate-300 hover:bg-slate-50 rounded-lg transition-colors cursor-pointer"
+                className="inline-flex items-center justify-center gap-1.5 px-4 py-2.5 text-xs font-medium text-stone-700 dark:text-stone-300 bg-white dark:bg-stone-800 border border-stone-300 dark:border-stone-700 hover:bg-stone-50 dark:hover:bg-stone-750 rounded-xl transition-colors cursor-pointer"
               >
-                <ExternalLink className="w-3.5 h-3.5 text-slate-400" />
+                <ExternalLink className="w-3.5 h-3.5 text-stone-400" />
                 <span>Adicionar via Web (GCal)</span>
               </a>
             </div>
           </div>
 
           {/* Educational Note */}
-          <div className="p-3 bg-slate-50 rounded-xl border border-slate-200 text-[11px] text-slate-500 flex items-start gap-2">
-            <ShieldCheck className="w-4 h-4 text-emerald-700 shrink-0 mt-0.5" />
+          <div className="p-3 bg-stone-50 dark:bg-stone-900/60 rounded-xl border border-stone-200 dark:border-stone-800 text-[11px] text-stone-500 dark:text-stone-400 flex items-start gap-2">
+            <ShieldCheck className="w-4 h-4 text-[#1B4332] dark:text-emerald-400 shrink-0 mt-0.5" />
             <p className="leading-relaxed">
               <strong>Privacidade do Paciente:</strong> Os títulos e descrições dos eventos utilizam termos clínicos respeitosos e discretos. O token de autenticação permanece estritamente na memória volátil da sua sessão.
             </p>
@@ -371,14 +368,14 @@ export const CalendarIntegrationModal: React.FC<CalendarIntegrationModalProps> =
         </div>
 
         {/* Footer */}
-        <div className="px-6 py-4 border-t border-slate-200 bg-slate-50/70 flex items-center justify-between">
-          <span className="text-xs text-slate-500">
+        <div className="px-5 sm:px-6 py-4 border-t border-stone-200 dark:border-stone-800 bg-stone-50/70 dark:bg-stone-900/60 flex items-center justify-between">
+          <span className="text-xs text-stone-500 dark:text-stone-400">
             Compatível com iOS 14+, Android 10+ e navegadores desktop.
           </span>
           <button
             type="button"
             onClick={onClose}
-            className="px-4 py-2 text-xs font-bold text-slate-700 hover:bg-slate-200/60 rounded-lg transition-colors cursor-pointer"
+            className="px-4 py-2 text-xs font-bold text-stone-700 dark:text-stone-300 hover:bg-stone-200/60 dark:hover:bg-stone-800 rounded-xl transition-colors cursor-pointer"
           >
             Fechar
           </button>

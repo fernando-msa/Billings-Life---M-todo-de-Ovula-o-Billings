@@ -223,7 +223,7 @@ export default function App() {
   };
 
   return (
-    <div className="min-h-screen bg-[#FAF8F5] text-stone-900 flex flex-col font-sans antialiased selection:bg-[#1B4332] selection:text-white">
+    <div className="min-h-screen bg-[var(--app-bg)] text-[var(--app-text)] flex flex-col font-sans antialiased selection:bg-[#1B4332] dark:selection:bg-emerald-600 selection:text-white transition-colors">
       {/* Universal Top Navigation Header */}
       <Header
         activeTab={activeTab}
@@ -246,9 +246,9 @@ export default function App() {
           <div className="space-y-5 sm:space-y-6">
             {/* Scheduled Reminder Due Banner */}
             {showReminderDueBanner && !todayLog && (
-              <div className="bg-[#1B4332] text-white rounded-2xl p-4 sm:p-5 shadow-sm flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+              <div className="bg-[#1B4332] dark:bg-emerald-950/70 border border-emerald-800 text-white rounded-2xl p-4 sm:p-5 shadow-sm flex flex-col sm:flex-row sm:items-center justify-between gap-4">
                 <div className="flex items-center gap-3">
-                  <div className="w-10 h-10 rounded-xl bg-[#2D6A4F] flex items-center justify-center shrink-0 text-xl">
+                  <div className="w-10 h-10 rounded-xl bg-[#2D6A4F] dark:bg-emerald-800 flex items-center justify-center shrink-0 text-xl">
                     🌙
                   </div>
                   <div>
@@ -305,20 +305,20 @@ export default function App() {
               {/* Card 1: AI Chatbot Consultation */}
               <div
                 onClick={() => setIsChatbotOpen(true)}
-                className="bg-white rounded-2xl border border-stone-200/90 p-5 shadow-[0_2px_8px_rgba(28,61,47,0.03)] hover:border-[#1B4332] transition-all cursor-pointer flex flex-col justify-between group"
+                className="bg-white dark:bg-[#181D1B] rounded-2xl border border-stone-200/90 dark:border-stone-800 p-5 shadow-[0_2px_8px_rgba(28,61,47,0.03)] hover:border-[#1B4332] dark:hover:border-emerald-500 transition-all cursor-pointer flex flex-col justify-between group"
               >
                 <div>
-                  <div className="w-10 h-10 rounded-xl bg-emerald-50 text-[#1B4332] flex items-center justify-center mb-3 group-hover:scale-105 transition-transform border border-emerald-200/60">
-                    <Sparkles className="w-5 h-5 text-amber-700" />
+                  <div className="w-10 h-10 rounded-xl bg-emerald-50 dark:bg-emerald-950/60 text-[#1B4332] dark:text-emerald-400 flex items-center justify-center mb-3 group-hover:scale-105 transition-transform border border-emerald-200/60 dark:border-emerald-800/60">
+                    <Sparkles className="w-5 h-5 text-amber-700 dark:text-amber-400" />
                   </div>
-                  <h3 className="text-sm font-serif font-bold text-stone-900 group-hover:text-[#1B4332] transition-colors">
+                  <h3 className="text-sm font-serif font-bold text-stone-900 dark:text-stone-100 group-hover:text-[#1B4332] dark:group-hover:text-emerald-400 transition-colors">
                     Dúvidas com Chatbot Gemini
                   </h3>
-                  <p className="text-xs text-stone-600 mt-1.5 leading-relaxed">
+                  <p className="text-xs text-stone-600 dark:text-stone-400 mt-1.5 leading-relaxed">
                     Tire dúvidas em tempo real sobre as 4 regras do Método Billings, identificação do PBI e interpretação de sensações com a IA.
                   </p>
                 </div>
-                <div className="mt-4 pt-3 border-t border-stone-100 flex items-center justify-between text-xs font-bold text-[#1B4332]">
+                <div className="mt-4 pt-3 border-t border-stone-100 dark:border-stone-800 flex items-center justify-between text-xs font-bold text-[#1B4332] dark:text-emerald-400">
                   <span>Abrir Chatbot</span>
                   <ArrowRight className="w-3.5 h-3.5 group-hover:translate-x-1 transition-transform" />
                 </div>
@@ -327,20 +327,20 @@ export default function App() {
               {/* Card 2: Cervical Mucus Image Analysis */}
               <div
                 onClick={() => setActiveTab('ai_analysis')}
-                className="bg-white rounded-2xl border border-stone-200/90 p-5 shadow-[0_2px_8px_rgba(28,61,47,0.03)] hover:border-[#1B4332] transition-all cursor-pointer flex flex-col justify-between group"
+                className="bg-white dark:bg-[#181D1B] rounded-2xl border border-stone-200/90 dark:border-stone-800 p-5 shadow-[0_2px_8px_rgba(28,61,47,0.03)] hover:border-[#1B4332] dark:hover:border-blue-500 transition-all cursor-pointer flex flex-col justify-between group"
               >
                 <div>
-                  <div className="w-10 h-10 rounded-xl bg-blue-50 text-blue-700 flex items-center justify-center mb-3 group-hover:scale-105 transition-transform border border-blue-200/60">
+                  <div className="w-10 h-10 rounded-xl bg-blue-50 dark:bg-blue-950/60 text-blue-700 dark:text-blue-300 flex items-center justify-center mb-3 group-hover:scale-105 transition-transform border border-blue-200/60 dark:border-blue-800/60">
                     <Droplets className="w-5 h-5" />
                   </div>
-                  <h3 className="text-sm font-serif font-bold text-stone-900 group-hover:text-[#1B4332] transition-colors">
+                  <h3 className="text-sm font-serif font-bold text-stone-900 dark:text-stone-100 group-hover:text-[#1B4332] dark:group-hover:text-emerald-400 transition-colors">
                     Laboratório de Muco por IA
                   </h3>
-                  <p className="text-xs text-stone-600 mt-1.5 leading-relaxed">
+                  <p className="text-xs text-stone-600 dark:text-stone-400 mt-1.5 leading-relaxed">
                     Envie fotografias do muco cervical para classificação visual de transparência, viscosidade e triagem de saúde vaginal.
                   </p>
                 </div>
-                <div className="mt-4 pt-3 border-t border-stone-100 flex items-center justify-between text-xs font-bold text-blue-800">
+                <div className="mt-4 pt-3 border-t border-stone-100 dark:border-stone-800 flex items-center justify-between text-xs font-bold text-blue-800 dark:text-blue-400">
                   <span>Acessar Análise</span>
                   <ArrowRight className="w-3.5 h-3.5 group-hover:translate-x-1 transition-transform" />
                 </div>
@@ -349,20 +349,20 @@ export default function App() {
               {/* Card 3: Google Drive & Clinical Report */}
               <div
                 onClick={() => setIsGoogleDriveModalOpen(true)}
-                className="bg-white rounded-2xl border border-stone-200/90 p-5 shadow-[0_2px_8px_rgba(28,61,47,0.03)] hover:border-amber-600 transition-all cursor-pointer flex flex-col justify-between group"
+                className="bg-white dark:bg-[#181D1B] rounded-2xl border border-stone-200/90 dark:border-stone-800 p-5 shadow-[0_2px_8px_rgba(28,61,47,0.03)] hover:border-amber-600 dark:hover:border-amber-500 transition-all cursor-pointer flex flex-col justify-between group"
               >
                 <div>
-                  <div className="w-10 h-10 rounded-xl bg-amber-50 text-amber-700 flex items-center justify-center mb-3 group-hover:scale-105 transition-transform border border-amber-200/60">
-                    <Cloud className="w-5 h-5 text-amber-700" />
+                  <div className="w-10 h-10 rounded-xl bg-amber-50 dark:bg-amber-950/60 text-amber-700 dark:text-amber-400 flex items-center justify-center mb-3 group-hover:scale-105 transition-transform border border-amber-200/60 dark:border-amber-800/60">
+                    <Cloud className="w-5 h-5 text-amber-700 dark:text-amber-400" />
                   </div>
-                  <h3 className="text-sm font-serif font-bold text-stone-900 group-hover:text-amber-800 transition-colors">
+                  <h3 className="text-sm font-serif font-bold text-stone-900 dark:text-stone-100 group-hover:text-amber-800 dark:group-hover:text-amber-400 transition-colors">
                     Nuvem Google Drive & Backup
                   </h3>
-                  <p className="text-xs text-stone-600 mt-1.5 leading-relaxed">
+                  <p className="text-xs text-stone-600 dark:text-stone-400 mt-1.5 leading-relaxed">
                     Sincronize seus ciclos com seu Google Drive seguro, baixe o prontuário em JSON ou imprima o relatório mensal em PDF.
                   </p>
                 </div>
-                <div className="mt-4 pt-3 border-t border-stone-100 flex items-center justify-between text-xs font-bold text-amber-900">
+                <div className="mt-4 pt-3 border-t border-stone-100 dark:border-stone-800 flex items-center justify-between text-xs font-bold text-amber-900 dark:text-amber-400">
                   <span>Sincronizar no Drive</span>
                   <ArrowRight className="w-3.5 h-3.5 group-hover:translate-x-1 transition-transform" />
                 </div>
@@ -556,10 +556,10 @@ export default function App() {
       />
 
       {/* Quiet Footer */}
-      <footer className="mt-auto border-t border-stone-200/90 bg-white py-6 text-xs text-stone-500 no-print">
+      <footer className="mt-auto border-t border-stone-200/90 dark:border-stone-800 bg-white dark:bg-[#181D1B] py-6 text-xs text-stone-500 dark:text-stone-400 no-print transition-colors">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 flex flex-col sm:flex-row items-center justify-between gap-4">
           <div className="flex items-center gap-2 flex-wrap">
-            <span className="font-serif font-bold text-stone-900">Billings Life</span>
+            <span className="font-serif font-bold text-stone-900 dark:text-stone-100">Billings Life</span>
             <span aria-hidden="true">·</span>
             <span>Método de Ovulação Billings (MOB)</span>
             <span aria-hidden="true">·</span>
@@ -568,14 +568,14 @@ export default function App() {
           <div className="flex items-center gap-4 text-[11px] flex-wrap">
             <button
               onClick={() => setIsOnboardingOpen(true)}
-              className="text-[#1B4332] hover:underline cursor-pointer font-medium"
+              className="text-[#1B4332] dark:text-emerald-400 hover:underline cursor-pointer font-medium"
             >
               Ver Apresentação
             </button>
             <span aria-hidden="true">·</span>
             <button
               onClick={() => setActiveTab('guide')}
-              className="text-[#1B4332] hover:underline cursor-pointer font-medium"
+              className="text-[#1B4332] dark:text-emerald-400 hover:underline cursor-pointer font-medium"
             >
               Manual das 4 Regras
             </button>

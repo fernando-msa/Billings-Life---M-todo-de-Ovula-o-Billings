@@ -112,98 +112,98 @@ export const HealthTipsSection: React.FC<HealthTipsSectionProps> = ({ onAskChatb
   const getIcon = (type: HealthTip['iconType']) => {
     switch (type) {
       case 'shield':
-        return <ShieldCheck className="w-5 h-5 text-emerald-700" />;
+        return <ShieldCheck className="w-5 h-5 text-emerald-700 dark:text-emerald-400" />;
       case 'droplet':
-        return <Droplets className="w-5 h-5 text-blue-600" />;
+        return <Droplets className="w-5 h-5 text-blue-700 dark:text-blue-400" />;
       case 'heart':
-        return <Heart className="w-5 h-5 text-rose-600" />;
+        return <Heart className="w-5 h-5 text-rose-600 dark:text-rose-400" />;
       case 'alert':
-        return <AlertTriangle className="w-5 h-5 text-amber-600" />;
+        return <AlertTriangle className="w-5 h-5 text-amber-600 dark:text-amber-400" />;
     }
   };
 
   return (
-    <div className="bg-white rounded-xl border border-slate-200 shadow-xs overflow-hidden">
+    <div className="bg-white dark:bg-[#181D1B] rounded-2xl border border-stone-200/90 dark:border-stone-800 shadow-[0_2px_8px_rgba(28,61,47,0.03)] overflow-hidden transition-colors">
       {/* Header */}
-      <div className="p-6 border-b border-slate-200 bg-slate-50/60">
+      <div className="p-5 sm:p-6 border-b border-stone-200/80 dark:border-stone-800 bg-stone-50/60 dark:bg-stone-900/60 transition-colors">
         <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
           <div>
-            <div className="flex items-center gap-2 mb-1.5">
-              <span className="px-2.5 py-0.5 text-xs font-semibold rounded-md bg-emerald-100 text-emerald-800 border border-emerald-300">
+            <div className="flex items-center gap-2 mb-1.5 flex-wrap">
+              <span className="px-2.5 py-0.5 text-xs font-semibold rounded-md bg-emerald-100 dark:bg-emerald-950/70 text-emerald-800 dark:text-emerald-300 border border-emerald-300 dark:border-emerald-800">
                 Diretrizes de Saúde WOOMB
               </span>
-              <span className="text-xs text-slate-400">·</span>
-              <span className="text-xs text-slate-500 font-mono">Cuidados & Higiene Íntima</span>
+              <span className="text-xs text-stone-400">·</span>
+              <span className="text-xs text-stone-500 dark:text-stone-400 font-mono">Cuidados & Higiene Íntima</span>
             </div>
-            <h2 className="text-lg sm:text-xl font-bold tracking-tight text-slate-900">
+            <h2 className="text-lg sm:text-xl font-serif font-bold tracking-tight text-stone-900 dark:text-stone-100">
               Dicas de Saúde & Higiene Íntima Fisiológica
             </h2>
-            <p className="text-xs text-slate-600 mt-1 max-w-2xl leading-relaxed">
+            <p className="text-xs text-stone-600 dark:text-stone-400 mt-1 max-w-2xl leading-relaxed">
               Orientações médicas e biológicas validadas pela Organização Mundial do Método de Ovulação Billings para manter a saúde vulvovaginal e assegurar a fidelidade das observações diárias.
             </p>
           </div>
 
           {/* Quick Search */}
           <div className="relative w-full md:w-64 shrink-0">
-            <Search className="w-4 h-4 text-slate-400 absolute left-3 top-2.5" />
+            <Search className="w-4 h-4 text-stone-400 absolute left-3 top-2.5" />
             <input
               type="text"
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
               placeholder="Buscar dica de saúde..."
-              className="w-full pl-9 pr-3 py-2 text-xs bg-white border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-emerald-600 placeholder:text-slate-400"
+              className="w-full pl-9 pr-3 py-2 text-xs bg-white dark:bg-stone-800 border border-stone-300 dark:border-stone-700 rounded-xl focus:outline-none focus:ring-2 focus:ring-[#1B4332] dark:focus:ring-emerald-500 placeholder:text-stone-400 text-stone-900 dark:text-stone-100 transition-colors"
             />
           </div>
         </div>
 
         {/* Category Filter Tabs (Clean Segmented Control) */}
-        <div className="flex items-center gap-1.5 mt-5 overflow-x-auto no-scrollbar">
+        <div className="flex items-center gap-1.5 mt-4 sm:mt-5 overflow-x-auto no-scrollbar">
           <button
             onClick={() => setSelectedCategory('todas')}
-            className={`px-3 py-1.5 text-xs font-medium rounded-md transition-colors cursor-pointer whitespace-nowrap ${
+            className={`px-3 py-1.5 text-xs font-medium rounded-lg transition-colors cursor-pointer whitespace-nowrap ${
               selectedCategory === 'todas'
-                ? 'bg-slate-900 text-white shadow-xs font-semibold'
-                : 'bg-white text-slate-600 border border-slate-200 hover:bg-slate-100'
+                ? 'bg-stone-900 dark:bg-emerald-700 text-white shadow-xs font-semibold'
+                : 'bg-white dark:bg-stone-800 text-stone-600 dark:text-stone-300 border border-stone-200 dark:border-stone-700 hover:bg-stone-100 dark:hover:bg-stone-750'
             }`}
           >
-            Todas as Dicas ({WOOMB_HEALTH_TIPS.length})
+            Todas ({WOOMB_HEALTH_TIPS.length})
           </button>
           <button
             onClick={() => setSelectedCategory('higiene')}
-            className={`px-3 py-1.5 text-xs font-medium rounded-md transition-colors cursor-pointer whitespace-nowrap ${
+            className={`px-3 py-1.5 text-xs font-medium rounded-lg transition-colors cursor-pointer whitespace-nowrap ${
               selectedCategory === 'higiene'
-                ? 'bg-slate-900 text-white shadow-xs font-semibold'
-                : 'bg-white text-slate-600 border border-slate-200 hover:bg-slate-100'
+                ? 'bg-stone-900 dark:bg-emerald-700 text-white shadow-xs font-semibold'
+                : 'bg-white dark:bg-stone-800 text-stone-600 dark:text-stone-300 border border-stone-200 dark:border-stone-700 hover:bg-stone-100 dark:hover:bg-stone-750'
             }`}
           >
             Higiene & Sabonetes
           </button>
           <button
             onClick={() => setSelectedCategory('observacao')}
-            className={`px-3 py-1.5 text-xs font-medium rounded-md transition-colors cursor-pointer whitespace-nowrap ${
+            className={`px-3 py-1.5 text-xs font-medium rounded-lg transition-colors cursor-pointer whitespace-nowrap ${
               selectedCategory === 'observacao'
-                ? 'bg-slate-900 text-white shadow-xs font-semibold'
-                : 'bg-white text-slate-600 border border-slate-200 hover:bg-slate-100'
+                ? 'bg-stone-900 dark:bg-emerald-700 text-white shadow-xs font-semibold'
+                : 'bg-white dark:bg-stone-800 text-stone-600 dark:text-stone-300 border border-stone-200 dark:border-stone-700 hover:bg-stone-100 dark:hover:bg-stone-750'
             }`}
           >
             Técnica de Observação
           </button>
           <button
             onClick={() => setSelectedCategory('vestuario')}
-            className={`px-3 py-1.5 text-xs font-medium rounded-md transition-colors cursor-pointer whitespace-nowrap ${
+            className={`px-3 py-1.5 text-xs font-medium rounded-lg transition-colors cursor-pointer whitespace-nowrap ${
               selectedCategory === 'vestuario'
-                ? 'bg-slate-900 text-white shadow-xs font-semibold'
-                : 'bg-white text-slate-600 border border-slate-200 hover:bg-slate-100'
+                ? 'bg-stone-900 dark:bg-emerald-700 text-white shadow-xs font-semibold'
+                : 'bg-white dark:bg-stone-800 text-stone-600 dark:text-stone-300 border border-stone-200 dark:border-stone-700 hover:bg-stone-100 dark:hover:bg-stone-750'
             }`}
           >
             Vestuário & Arejamento
           </button>
           <button
             onClick={() => setSelectedCategory('alerta')}
-            className={`px-3 py-1.5 text-xs font-medium rounded-md transition-colors cursor-pointer whitespace-nowrap ${
+            className={`px-3 py-1.5 text-xs font-medium rounded-lg transition-colors cursor-pointer whitespace-nowrap ${
               selectedCategory === 'alerta'
-                ? 'bg-slate-900 text-white shadow-xs font-semibold'
-                : 'bg-white text-slate-600 border border-slate-200 hover:bg-slate-100'
+                ? 'bg-stone-900 dark:bg-emerald-700 text-white shadow-xs font-semibold'
+                : 'bg-white dark:bg-stone-800 text-stone-600 dark:text-stone-300 border border-stone-200 dark:border-stone-700 hover:bg-stone-100 dark:hover:bg-stone-750'
             }`}
           >
             Sinais de Alerta
@@ -212,9 +212,9 @@ export const HealthTipsSection: React.FC<HealthTipsSectionProps> = ({ onAskChatb
       </div>
 
       {/* Tips Cards List */}
-      <div className="p-6 space-y-3">
+      <div className="p-4 sm:p-6 space-y-3">
         {filteredTips.length === 0 ? (
-          <div className="text-center py-8 text-xs text-slate-500">
+          <div className="text-center py-8 text-xs text-stone-500 dark:text-stone-400">
             Nenhuma dica encontrada com os termos selecionados.
           </div>
         ) : (
@@ -226,8 +226,8 @@ export const HealthTipsSection: React.FC<HealthTipsSectionProps> = ({ onAskChatb
                 key={tip.id}
                 className={`rounded-xl border transition-all ${
                   isExpanded
-                    ? 'border-emerald-600 bg-white ring-1 ring-emerald-600/20 shadow-xs'
-                    : 'border-slate-200 bg-white hover:border-slate-300'
+                    ? 'border-[#1B4332] dark:border-emerald-600 bg-white dark:bg-stone-900/60 ring-1 ring-[#1B4332]/20 dark:ring-emerald-600/30 shadow-xs'
+                    : 'border-stone-200 dark:border-stone-800 bg-white dark:bg-[#181D1B] hover:border-stone-300 dark:hover:border-stone-700'
                 }`}
               >
                 {/* Header row clickable */}
@@ -236,22 +236,22 @@ export const HealthTipsSection: React.FC<HealthTipsSectionProps> = ({ onAskChatb
                   className="w-full text-left p-4 flex items-start justify-between gap-4 cursor-pointer"
                 >
                   <div className="flex items-start gap-3.5">
-                    <div className="p-2 rounded-lg bg-slate-50 border border-slate-200 shrink-0 mt-0.5">
+                    <div className="p-2 rounded-lg bg-stone-50 dark:bg-stone-800 border border-stone-200 dark:border-stone-700 shrink-0 mt-0.5">
                       {getIcon(tip.iconType)}
                     </div>
                     <div>
-                      <h3 className="text-sm font-bold text-slate-900">
+                      <h3 className="text-sm font-serif font-bold text-stone-900 dark:text-stone-100">
                         {tip.title}
                       </h3>
-                      <p className="text-xs text-slate-600 mt-0.5 leading-relaxed">
+                      <p className="text-xs text-stone-600 dark:text-stone-400 mt-0.5 leading-relaxed">
                         {tip.summary}
                       </p>
                     </div>
                   </div>
 
-                  <div className="shrink-0 text-slate-400 mt-1">
+                  <div className="shrink-0 text-stone-400 mt-1">
                     {isExpanded ? (
-                      <ChevronUp className="w-4 h-4 text-emerald-700" />
+                      <ChevronUp className="w-4 h-4 text-[#1B4332] dark:text-emerald-400" />
                     ) : (
                       <ChevronDown className="w-4 h-4" />
                     )}
@@ -260,17 +260,17 @@ export const HealthTipsSection: React.FC<HealthTipsSectionProps> = ({ onAskChatb
 
                 {/* Expanded Detailed Content */}
                 {isExpanded && (
-                  <div className="px-4 pb-4 pt-1 border-t border-slate-100 space-y-3 text-xs">
-                    <div className="p-3.5 bg-slate-50 rounded-lg border border-slate-200 leading-relaxed text-slate-700">
-                      <strong className="block text-slate-900 font-semibold mb-1">
+                  <div className="px-4 pb-4 pt-1 border-t border-stone-100 dark:border-stone-800 space-y-3 text-xs">
+                    <div className="p-3.5 bg-stone-50 dark:bg-stone-850 rounded-lg border border-stone-200/80 dark:border-stone-800 leading-relaxed text-stone-700 dark:text-stone-300">
+                      <strong className="block text-stone-900 dark:text-stone-100 font-semibold mb-1">
                         Orientação Prática:
                       </strong>
                       <p>{tip.detailedGuidance}</p>
                     </div>
 
-                    <div className="p-3.5 bg-emerald-50/70 border border-emerald-200 rounded-lg text-emerald-950 leading-relaxed">
-                      <strong className="block text-emerald-900 font-semibold mb-1 flex items-center gap-1.5">
-                        <Info className="w-3.5 h-3.5 text-emerald-700" />
+                    <div className="p-3.5 bg-emerald-50/70 dark:bg-emerald-950/40 border border-emerald-200 dark:border-emerald-850 rounded-lg text-emerald-950 dark:text-emerald-200 leading-relaxed">
+                      <strong className="block text-emerald-900 dark:text-emerald-300 font-semibold mb-1 flex items-center gap-1.5">
+                        <Info className="w-3.5 h-3.5 text-emerald-700 dark:text-emerald-400" />
                         Fundamento Oficial da WOOMB:
                       </strong>
                       <p>{tip.woombRationale}</p>
@@ -282,9 +282,9 @@ export const HealthTipsSection: React.FC<HealthTipsSectionProps> = ({ onAskChatb
                         <button
                           type="button"
                           onClick={() => onAskChatbotAboutTip(`Explique mais sobre a orientação da WOOMB: ${tip.title}`)}
-                          className="inline-flex items-center gap-1.5 text-xs text-emerald-800 hover:text-emerald-950 font-semibold hover:underline cursor-pointer"
+                          className="inline-flex items-center gap-1.5 text-xs text-[#1B4332] dark:text-emerald-400 hover:text-emerald-800 dark:hover:text-emerald-300 font-semibold hover:underline cursor-pointer"
                         >
-                          <Sparkles className="w-3.5 h-3.5 text-emerald-600" />
+                          <Sparkles className="w-3.5 h-3.5 text-amber-600 dark:text-amber-400" />
                           <span>Tirar dúvidas sobre este tópico com o Chatbot</span>
                         </button>
                       </div>
@@ -298,12 +298,12 @@ export const HealthTipsSection: React.FC<HealthTipsSectionProps> = ({ onAskChatb
       </div>
 
       {/* Footer advice */}
-      <div className="px-6 py-3.5 bg-slate-50 border-t border-slate-200 text-[11px] text-slate-500 flex items-center justify-between">
+      <div className="px-5 sm:px-6 py-3.5 bg-stone-50 dark:bg-stone-900/60 border-t border-stone-200/80 dark:border-stone-800 text-[11px] text-stone-500 dark:text-stone-400 flex flex-col sm:flex-row sm:items-center justify-between gap-2">
         <span className="flex items-center gap-1.5">
-          <BookOpen className="w-3.5 h-3.5 text-emerald-700" />
-          Embasado nos manuais clínicos &ldquo;O Método Billings&rdquo; (Dra. Evelyn Billings) e publicações científicas da WOOMB.
+          <BookOpen className="w-3.5 h-3.5 text-[#1B4332] dark:text-emerald-400 shrink-0" />
+          <span>Embasado nos manuais clínicos &ldquo;O Método Billings&rdquo; (Dra. Evelyn Billings) e publicações da WOOMB.</span>
         </span>
-        <span className="font-mono text-slate-400">Padrão Ouro Ginecológico</span>
+        <span className="font-mono text-stone-400 dark:text-stone-500 text-[10px]">Padrão Ouro Ginecológico</span>
       </div>
     </div>
   );
