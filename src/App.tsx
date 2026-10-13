@@ -13,6 +13,7 @@ import {
   Droplets,
   HelpCircle,
   X,
+  Cloud,
 } from 'lucide-react';
 import {
   Cycle,
@@ -44,6 +45,12 @@ import { EducationalGuide } from './components/EducationalGuide';
 import { BillingsChatbot } from './components/BillingsChatbot';
 import { DailyReminderSettings } from './components/DailyReminderSettings';
 import { HealthTipsSection } from './components/HealthTipsSection';
+import { CalendarIntegrationModal } from './components/CalendarIntegrationModal';
+import { AutoBackupManager } from './components/AutoBackupManager';
+import { MobileBottomNav } from './components/MobileBottomNav';
+import { MobileMoreDrawer } from './components/MobileMoreDrawer';
+import { GoogleDriveSyncModal } from './components/GoogleDriveSyncModal';
+import { OnboardingIntroSlides } from './components/OnboardingIntroSlides';
 
 export default function App() {
   const [activeTab, setActiveTab] = useState<NavTab>('dashboard');
@@ -66,6 +73,20 @@ export default function App() {
   const [isReminderSettingsOpen, setIsReminderSettingsOpen] = useState(false);
   const [reminderConfig, setReminderConfig] = useState<DailyReminderConfig>(getReminderConfig());
   const [showReminderDueBanner, setShowReminderDueBanner] = useState(false);
+
+  // Calendar integration, Auto backup & Google Drive modal states
+  const [isCalendarModalOpen, setIsCalendarModalOpen] = useState(false);
+  const [isAutoBackupModalOpen, setIsAutoBackupModalOpen] = useState(false);
+  const [isGoogleDriveModalOpen, setIsGoogleDriveModalOpen] = useState(false);
+
+  // Mobile More Drawer state
+  const [isMoreMenuOpen, setIsMoreMenuOpen] = useState(false);
+
+  // Onboarding Intro Slides state (first-time detection or manual trigger)
+  const [isOnboardingOpen, setIsOnboardingOpen] = useState(() => {
+    const hasSeen = localStorage.getItem('billings_has_seen_intro_v1');
+    return !hasSeen;
+  });
 
   // Preloaded photo for AI analysis tab
   const [preloadedPhotoForAI, setPreloadedPhotoForAI] = useState<string | undefined>(undefined);
@@ -100,13 +121,8 @@ export default function App() {
       const minutes = String(now.getMinutes()).padStart(2, '0');
       const currentTimeStr = `${hours}:${minutes}`;
 
-      // Check if day of week is enabled
       const isDayActive = reminderConfig.daysOfWeek.includes(currentDayOfWeek);
-
-      // Check if today has already been logged
       const hasLoggedToday = !!todayLog;
-
-      // Check if current time has reached or passed scheduled reminder time
       const isPastOrAtTime = currentTimeStr >= reminderConfig.time;
       const isAlreadyNotifiedToday = reminderConfig.lastNotifiedDate === todayDateStr;
 
@@ -131,7 +147,6 @@ export default function App() {
       }
     };
 
-    // Check immediately on load and then every 30 seconds
     checkReminder();
     const interval = setInterval(checkReminder, 30000);
     return () => clearInterval(interval);
@@ -202,8 +217,13 @@ export default function App() {
     setActiveTab('ai_analysis');
   };
 
+  const handleCloseOnboarding = () => {
+    localStorage.setItem('billings_has_seen_intro_v1', 'true');
+    setIsOnboardingOpen(false);
+  };
+
   return (
-    <div className="min-h-screen bg-slate-50 text-slate-900 flex flex-col font-sans">
+    <div className="min-h-screen bg-[#FAF8F5] text-stone-900 flex flex-col font-sans antialiased selection:bg-[#1B4332] selection:text-white">
       {/* Universal Top Navigation Header */}
       <Header
         activeTab={activeTab}
@@ -213,27 +233,29 @@ export default function App() {
         }}
         onOpenNewLog={() => handleOpenNewLog()}
         onOpenReminderSettings={() => setIsReminderSettingsOpen(true)}
+        onOpenCalendarIntegration={() => setIsCalendarModalOpen(true)}
+        onOpenGoogleDriveSync={() => setIsGoogleDriveModalOpen(true)}
         reminderTime={reminderConfig.time}
         isReminderEnabled={reminderConfig.enabled}
       />
 
-      {/* Main Content Viewport */}
-      <main className="flex-1 max-w-7xl w-full mx-auto px-4 sm:px-6 lg:px-8 py-6 space-y-6">
+      {/* Main Content Viewport with generous bottom padding for mobile tab bar */}
+      <main className="flex-1 max-w-7xl w-full mx-auto px-3.5 sm:px-6 lg:px-8 py-5 sm:py-6 space-y-6 pb-24 md:pb-8">
         {/* TAB 1: PAINEL PRINCIPAL & ALERTAS */}
         {activeTab === 'dashboard' && (
-          <div className="space-y-6">
+          <div className="space-y-5 sm:space-y-6">
             {/* Scheduled Reminder Due Banner */}
             {showReminderDueBanner && !todayLog && (
-              <div className="bg-emerald-900 text-white rounded-xl p-4 shadow-sm flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+              <div className="bg-[#1B4332] text-white rounded-2xl p-4 sm:p-5 shadow-sm flex flex-col sm:flex-row sm:items-center justify-between gap-4">
                 <div className="flex items-center gap-3">
-                  <div className="w-9 h-9 rounded-lg bg-emerald-800 flex items-center justify-center shrink-0">
-                    <span className="text-lg">🌙</span>
+                  <div className="w-10 h-10 rounded-xl bg-[#2D6A4F] flex items-center justify-center shrink-0 text-xl">
+                    🌙
                   </div>
                   <div>
-                    <h4 className="text-sm font-bold text-white">
+                    <h4 className="text-xs sm:text-sm font-bold text-white">
                       Hora de registrar suas observações de hoje ({reminderConfig.time})
                     </h4>
-                    <p className="text-xs text-emerald-200">
+                    <p className="text-xs text-emerald-200 mt-0.5">
                       Segundo o Método Billings, o fim do dia é o momento ideal para sintetizar a sensação mais fértil sentida ao longo das atividades cotidianas.
                     </p>
                   </div>
@@ -242,13 +264,13 @@ export default function App() {
                 <div className="flex items-center gap-2 shrink-0">
                   <button
                     onClick={() => handleOpenNewLog()}
-                    className="px-4 py-2 text-xs font-bold text-emerald-950 bg-white hover:bg-emerald-50 rounded-lg shadow-xs transition-colors cursor-pointer"
+                    className="px-4 py-2 text-xs font-bold text-[#1B4332] bg-white hover:bg-emerald-50 rounded-xl shadow-xs transition-colors cursor-pointer"
                   >
                     Registrar Agora
                   </button>
                   <button
                     onClick={() => setShowReminderDueBanner(false)}
-                    className="px-3 py-2 text-xs font-medium text-emerald-200 hover:text-white rounded-lg transition-colors cursor-pointer"
+                    className="px-3 py-2 text-xs font-medium text-emerald-200 hover:text-white rounded-xl transition-colors cursor-pointer"
                   >
                     Dispensar
                   </button>
@@ -265,6 +287,7 @@ export default function App() {
               onUpdateGoal={handleUpdateGoal}
               onOpenLogModal={() => (todayLog ? handleEditLog(todayLog) : handleOpenNewLog())}
               onOpenAIAnalyzer={() => setActiveTab('ai_analysis')}
+              onOpenOnboardingIntro={() => setIsOnboardingOpen(true)}
             />
 
             {/* Quick Chart Strip View */}
@@ -278,24 +301,24 @@ export default function App() {
             />
 
             {/* Feature Cards Grid (Clinical Continuity & Education) */}
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-5">
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4 sm:gap-5">
               {/* Card 1: AI Chatbot Consultation */}
               <div
                 onClick={() => setIsChatbotOpen(true)}
-                className="bg-white rounded-xl border border-slate-200 p-5 shadow-xs hover:border-emerald-600 transition-all cursor-pointer flex flex-col justify-between group"
+                className="bg-white rounded-2xl border border-stone-200/90 p-5 shadow-[0_2px_8px_rgba(28,61,47,0.03)] hover:border-[#1B4332] transition-all cursor-pointer flex flex-col justify-between group"
               >
                 <div>
-                  <div className="w-9 h-9 rounded-lg bg-emerald-50 text-emerald-700 flex items-center justify-center mb-3 group-hover:scale-105 transition-transform">
-                    <Sparkles className="w-5 h-5" />
+                  <div className="w-10 h-10 rounded-xl bg-emerald-50 text-[#1B4332] flex items-center justify-center mb-3 group-hover:scale-105 transition-transform border border-emerald-200/60">
+                    <Sparkles className="w-5 h-5 text-amber-700" />
                   </div>
-                  <h3 className="text-sm font-bold text-slate-900 group-hover:text-emerald-800 transition-colors">
+                  <h3 className="text-sm font-serif font-bold text-stone-900 group-hover:text-[#1B4332] transition-colors">
                     Dúvidas com Chatbot Gemini
                   </h3>
-                  <p className="text-xs text-slate-600 mt-1.5 leading-relaxed">
-                    Tire dúvidas em tempo real sobre as regras do Método Billings, identificação do PBI e interpretação de sensações.
+                  <p className="text-xs text-stone-600 mt-1.5 leading-relaxed">
+                    Tire dúvidas em tempo real sobre as 4 regras do Método Billings, identificação do PBI e interpretação de sensações com a IA.
                   </p>
                 </div>
-                <div className="mt-4 pt-3 border-t border-slate-100 flex items-center justify-between text-xs font-semibold text-emerald-800">
+                <div className="mt-4 pt-3 border-t border-stone-100 flex items-center justify-between text-xs font-bold text-[#1B4332]">
                   <span>Abrir Chatbot</span>
                   <ArrowRight className="w-3.5 h-3.5 group-hover:translate-x-1 transition-transform" />
                 </div>
@@ -304,43 +327,43 @@ export default function App() {
               {/* Card 2: Cervical Mucus Image Analysis */}
               <div
                 onClick={() => setActiveTab('ai_analysis')}
-                className="bg-white rounded-xl border border-slate-200 p-5 shadow-xs hover:border-emerald-600 transition-all cursor-pointer flex flex-col justify-between group"
+                className="bg-white rounded-2xl border border-stone-200/90 p-5 shadow-[0_2px_8px_rgba(28,61,47,0.03)] hover:border-[#1B4332] transition-all cursor-pointer flex flex-col justify-between group"
               >
                 <div>
-                  <div className="w-9 h-9 rounded-lg bg-blue-50 text-blue-700 flex items-center justify-center mb-3 group-hover:scale-105 transition-transform">
+                  <div className="w-10 h-10 rounded-xl bg-blue-50 text-blue-700 flex items-center justify-center mb-3 group-hover:scale-105 transition-transform border border-blue-200/60">
                     <Droplets className="w-5 h-5" />
                   </div>
-                  <h3 className="text-sm font-bold text-slate-900 group-hover:text-emerald-800 transition-colors">
+                  <h3 className="text-sm font-serif font-bold text-stone-900 group-hover:text-[#1B4332] transition-colors">
                     Laboratório de Muco por IA
                   </h3>
-                  <p className="text-xs text-slate-600 mt-1.5 leading-relaxed">
+                  <p className="text-xs text-stone-600 mt-1.5 leading-relaxed">
                     Envie fotografias do muco cervical para classificação visual de transparência, viscosidade e triagem de saúde vaginal.
                   </p>
                 </div>
-                <div className="mt-4 pt-3 border-t border-slate-100 flex items-center justify-between text-xs font-semibold text-blue-700">
+                <div className="mt-4 pt-3 border-t border-stone-100 flex items-center justify-between text-xs font-bold text-blue-800">
                   <span>Acessar Análise</span>
                   <ArrowRight className="w-3.5 h-3.5 group-hover:translate-x-1 transition-transform" />
                 </div>
               </div>
 
-              {/* Card 3: Export Clinical Report */}
+              {/* Card 3: Google Drive & Clinical Report */}
               <div
-                onClick={() => setActiveTab('clinical_record')}
-                className="bg-white rounded-xl border border-slate-200 p-5 shadow-xs hover:border-emerald-600 transition-all cursor-pointer flex flex-col justify-between group"
+                onClick={() => setIsGoogleDriveModalOpen(true)}
+                className="bg-white rounded-2xl border border-stone-200/90 p-5 shadow-[0_2px_8px_rgba(28,61,47,0.03)] hover:border-amber-600 transition-all cursor-pointer flex flex-col justify-between group"
               >
                 <div>
-                  <div className="w-9 h-9 rounded-lg bg-amber-50 text-amber-700 flex items-center justify-center mb-3 group-hover:scale-105 transition-transform">
-                    <FileText className="w-5 h-5" />
+                  <div className="w-10 h-10 rounded-xl bg-amber-50 text-amber-700 flex items-center justify-center mb-3 group-hover:scale-105 transition-transform border border-amber-200/60">
+                    <Cloud className="w-5 h-5 text-amber-700" />
                   </div>
-                  <h3 className="text-sm font-bold text-slate-900 group-hover:text-emerald-800 transition-colors">
-                    Prontuário & Relatório Médico
+                  <h3 className="text-sm font-serif font-bold text-stone-900 group-hover:text-amber-800 transition-colors">
+                    Nuvem Google Drive & Backup
                   </h3>
-                  <p className="text-xs text-slate-600 mt-1.5 leading-relaxed">
-                    Baixe o backup completo em JSON ou imprima o relatório mensal em folha A4 para levar à sua ginecologista ou instrutora.
+                  <p className="text-xs text-stone-600 mt-1.5 leading-relaxed">
+                    Sincronize seus ciclos com seu Google Drive seguro, baixe o prontuário em JSON ou imprima o relatório mensal em PDF.
                   </p>
                 </div>
-                <div className="mt-4 pt-3 border-t border-slate-100 flex items-center justify-between text-xs font-semibold text-amber-800">
-                  <span>Gerar Relatório</span>
+                <div className="mt-4 pt-3 border-t border-stone-100 flex items-center justify-between text-xs font-bold text-amber-900">
+                  <span>Sincronizar no Drive</span>
                   <ArrowRight className="w-3.5 h-3.5 group-hover:translate-x-1 transition-transform" />
                 </div>
               </div>
@@ -406,21 +429,49 @@ export default function App() {
         {activeTab === 'guide' && <EducationalGuide />}
       </main>
 
-      {/* Floating Chatbot Floating Button (Always accessible) */}
-      <div className="fixed bottom-6 right-6 z-40 no-print">
+      {/* Mobile Fixed Bottom Navigation Bar */}
+      <MobileBottomNav
+        activeTab={activeTab}
+        onSelectTab={(tab) => {
+          setActiveTab(tab);
+          window.scrollTo({ top: 0, behavior: 'smooth' });
+        }}
+        onOpenNewLog={() => handleOpenNewLog()}
+        onOpenMoreMenu={() => setIsMoreMenuOpen(true)}
+        isMoreMenuOpen={isMoreMenuOpen}
+      />
+
+      {/* Mobile More Drawer */}
+      <MobileMoreDrawer
+        isOpen={isMoreMenuOpen}
+        onClose={() => setIsMoreMenuOpen(false)}
+        onSelectTab={(tab) => {
+          setActiveTab(tab);
+          window.scrollTo({ top: 0, behavior: 'smooth' });
+        }}
+        onOpenReminderSettings={() => setIsReminderSettingsOpen(true)}
+        onOpenCalendarSync={() => setIsCalendarModalOpen(true)}
+        onOpenGoogleDriveSync={() => setIsGoogleDriveModalOpen(true)}
+        onOpenAutoBackup={() => setIsAutoBackupModalOpen(true)}
+        onOpenChatbot={() => setIsChatbotOpen(true)}
+        reminderTime={reminderConfig.time}
+      />
+
+      {/* Floating Chatbot Button (Positioned comfortably above mobile bottom bar) */}
+      <div className="fixed bottom-20 right-4 sm:bottom-6 sm:right-6 z-40 no-print">
         <button
           onClick={() => setIsChatbotOpen((prev) => !prev)}
-          className="flex items-center gap-2 px-4 py-3 bg-emerald-800 hover:bg-emerald-900 text-white rounded-full shadow-lg transition-all hover:scale-105 cursor-pointer"
+          className="flex items-center gap-2 px-3.5 py-2.5 sm:px-4 sm:py-3 bg-gradient-to-tr from-[#1B4332] to-[#2D6A4F] hover:from-[#143225] hover:to-[#245741] text-white rounded-full shadow-lg shadow-[#1B4332]/30 transition-all hover:scale-105 active:scale-95 cursor-pointer border border-emerald-400/20"
           title="Tirar dúvidas sobre o Método Billings com IA"
         >
-          <Sparkles className="w-5 h-5 text-emerald-300" />
+          <Sparkles className="w-4 h-4 sm:w-5 sm:h-5 text-amber-200" />
           <span className="text-xs font-bold whitespace-nowrap">Chatbot Billings (Gemini)</span>
         </button>
       </div>
 
       {/* Floating Chatbot Modal Dialog */}
       {isChatbotOpen && (
-        <div className="fixed inset-0 z-50 overflow-y-auto bg-slate-900/50 backdrop-blur-xs flex items-center justify-center p-4 no-print">
+        <div className="fixed inset-0 z-50 overflow-y-auto bg-stone-900/60 backdrop-blur-xs flex items-center justify-center p-3 sm:p-4 no-print">
           <BillingsChatbot
             profile={profile}
             currentCycleDay={currentCycleDayNumber}
@@ -458,22 +509,73 @@ export default function App() {
         }}
       />
 
+      {/* Calendar Integration Modal (Google & Apple) */}
+      {currentCycle && (
+        <CalendarIntegrationModal
+          isOpen={isCalendarModalOpen}
+          onClose={() => setIsCalendarModalOpen(false)}
+          cycle={currentCycle}
+          profile={profile}
+          reminderConfig={reminderConfig}
+        />
+      )}
+
+      {/* Google Drive Sync Modal */}
+      <GoogleDriveSyncModal
+        isOpen={isGoogleDriveModalOpen}
+        onClose={() => setIsGoogleDriveModalOpen(false)}
+        cycles={cycles}
+        profile={profile}
+        onRestoreData={(newCycles, newProfile) => {
+          setCycles(newCycles);
+          setProfile(newProfile);
+          if (newCycles.length > 0) {
+            setActiveCycleId(newCycles[newCycles.length - 1].id);
+          }
+        }}
+      />
+
+      {/* Auto Backup Manager Modal */}
+      <AutoBackupManager
+        isOpen={isAutoBackupModalOpen}
+        onClose={() => setIsAutoBackupModalOpen(false)}
+        onDataRestored={() => {
+          setCycles(getCycles());
+          setProfile(getClinicalProfile());
+        }}
+      />
+
+      {/* Onboarding Introduction in Slides */}
+      <OnboardingIntroSlides
+        isOpen={isOnboardingOpen}
+        onClose={handleCloseOnboarding}
+        initialGoal={profile.goal}
+        onSelectInitialGoal={(goal) => {
+          handleUpdateGoal(goal);
+        }}
+      />
+
       {/* Quiet Footer */}
-      <footer className="mt-auto border-t border-slate-200 bg-white py-6 text-xs text-slate-500 no-print">
+      <footer className="mt-auto border-t border-stone-200/90 bg-white py-6 text-xs text-stone-500 no-print">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 flex flex-col sm:flex-row items-center justify-between gap-4">
-          <div className="flex items-center gap-2">
-            <span className="font-bold text-slate-800">Billings Life</span>
+          <div className="flex items-center gap-2 flex-wrap">
+            <span className="font-serif font-bold text-stone-900">Billings Life</span>
             <span aria-hidden="true">·</span>
             <span>Método de Ovulação Billings (MOB)</span>
             <span aria-hidden="true">·</span>
             <span>WOOMB International & CENPLAFAM</span>
           </div>
-          <div className="flex items-center gap-4 text-[11px]">
-            <span>Privacidade Local & Criptografia de Dados</span>
+          <div className="flex items-center gap-4 text-[11px] flex-wrap">
+            <button
+              onClick={() => setIsOnboardingOpen(true)}
+              className="text-[#1B4332] hover:underline cursor-pointer font-medium"
+            >
+              Ver Apresentação
+            </button>
             <span aria-hidden="true">·</span>
             <button
               onClick={() => setActiveTab('guide')}
-              className="text-emerald-700 hover:underline"
+              className="text-[#1B4332] hover:underline cursor-pointer font-medium"
             >
               Manual das 4 Regras
             </button>

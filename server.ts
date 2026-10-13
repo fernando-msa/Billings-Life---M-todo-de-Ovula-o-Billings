@@ -9,15 +9,46 @@ dotenv.config();
 const app = express();
 app.use(express.json({ limit: '25mb' }));
 
-// Shared Gemini client configured according to guidelines
-const ai = new GoogleGenAI({
-  apiKey: process.env.GEMINI_API_KEY,
-  httpOptions: {
-    headers: {
-      'User-Agent': 'aistudio-build',
+// Shared Gemini client configured according to official guidelines
+function getAiClient() {
+  return new GoogleGenAI({
+    apiKey: process.env.GEMINI_API_KEY,
+    httpOptions: {
+      headers: {
+        'User-Agent': 'aistudio-build',
+      },
     },
-  },
-});
+  });
+}
+
+// Resilient models list to prevent temporary 503 high-demand outages
+const PRIMARY_MODELS = ['gemini-3-flash-preview', 'gemini-3.8-flash', 'gemini-3.1-flash-lite'];
+
+async function generateWithFallback(callFn: (modelName: string) => Promise<any>) {
+  let lastError: any = null;
+  for (const model of PRIMARY_MODELS) {
+    try {
+      return await callFn(model);
+    } catch (err: any) {
+      console.warn(`[Gemini Model Error on ${model}]:`, err?.message || err);
+      lastError = err;
+      // If 503 or 429, continue to next fallback model
+      continue;
+    }
+  }
+  throw lastError || new Error('Todos os modelos de IA estão temporariamente indisponíveis.');
+}
+
+function cleanJsonString(str: string): string {
+  if (!str) return '{}';
+  let cleaned = str.trim();
+  if (cleaned.startsWith('```json')) {
+    cleaned = cleaned.replace(/^```json\s*/, '').replace(/\s*```$/, '');
+  } else if (cleaned.startsWith('```')) {
+    cleaned = cleaned.replace(/^```\s*/, '').replace(/\s*```$/, '');
+  }
+  return cleaned;
+}
 
 // Endpoint to analyze cervical mucus image
 app.post('/api/analyze-mucus', async (req, res) => {
@@ -34,6 +65,7 @@ app.post('/api/analyze-mucus', async (req, res) => {
       });
     }
 
+    const ai = getAiClient();
     // Clean base64 string if data URL prefix exists
     const cleanBase64 = imageBase64.replace(/^data:image\/[a-zA-Z0-9+.-]+;base64,/, '');
 
@@ -53,78 +85,80 @@ Orientações de análise clínica:
 5. Seja empática, didática, cientificamente precisa e inclua o aviso de que a IA é um instrumento educativo complementar e não substitui a orientação de uma instrutora credenciada WOOMB ou consulta com ginecologista.
 `;
 
-    const response = await ai.models.generateContent({
-      model: 'gemini-3.8-flash',
-      contents: {
-        parts: [
-          {
-            inlineData: {
-              mimeType: mimeType,
-              data: cleanBase64,
+    const response = await generateWithFallback((model) =>
+      ai.models.generateContent({
+        model,
+        contents: {
+          parts: [
+            {
+              inlineData: {
+                mimeType: mimeType,
+                data: cleanBase64,
+              },
             },
-          },
-          {
-            text: promptText,
-          },
-        ],
-      },
-      config: {
-        responseMimeType: 'application/json',
-        responseSchema: {
-          type: Type.OBJECT,
-          properties: {
-            consistencyClassification: {
-              type: Type.STRING,
-              description: 'Classificação da textura (ex: Elástico/Filante, Cremoso/Pastoso, Aquoso, Espesso/Opaco)',
+            {
+              text: promptText,
             },
-            appearanceDescription: {
-              type: Type.STRING,
-              description: 'Descrição visual objetiva do fluido analisado',
-            },
-            visualFertilityTendency: {
-              type: Type.STRING,
-              description: 'Tendência visual (ex: Padrão Estrogênico (Alta fertilidade), Padrão Progestogênico (Infértil/PBI), Transição, ou Indeterminado)',
-            },
-            suggestedBillingsStamp: {
-              type: Type.STRING,
-              description: 'Selo sugerido: "Branco com bebê", "Verde", "Amarelo", "Vermelho" ou "Ápice sob observação"',
-            },
-            billingsGoldenRule: {
-              type: Type.STRING,
-              description: 'Lembrete essencial sobre a supremacia da sensação vulvar no Método Billings',
-            },
-            clinicalObservations: {
-              type: Type.STRING,
-              description: 'Análise detalhada e reflexão sobre a evolução do ciclo',
-            },
-            infectionRiskAlert: {
-              type: Type.BOOLEAN,
-              description: 'Verdadeiro se houver qualquer suspeita de corrimento anormal ou infecção',
-            },
-            infectionNotes: {
-              type: Type.STRING,
-              description: 'Observações ou orientações sobre saúde vaginal / infecção se houver',
-            },
-            recommendation: {
-              type: Type.STRING,
-              description: 'Recomendação prática para o dia de hoje segundo o Método Billings',
-            },
-          },
-          required: [
-            'consistencyClassification',
-            'appearanceDescription',
-            'visualFertilityTendency',
-            'suggestedBillingsStamp',
-            'billingsGoldenRule',
-            'clinicalObservations',
-            'infectionRiskAlert',
-            'recommendation',
           ],
         },
-      },
-    });
+        config: {
+          responseMimeType: 'application/json',
+          responseSchema: {
+            type: Type.OBJECT,
+            properties: {
+              consistencyClassification: {
+                type: Type.STRING,
+                description: 'Classificação da textura (ex: Elástico/Filante, Cremoso/Pastoso, Aquoso, Espesso/Opaco)',
+              },
+              appearanceDescription: {
+                type: Type.STRING,
+                description: 'Descrição visual objetiva do fluido analisado',
+              },
+              visualFertilityTendency: {
+                type: Type.STRING,
+                description: 'Tendência visual (ex: Padrão Estrogênico (Alta fertilidade), Padrão Progestogênico (Infértil/PBI), Transição, ou Indeterminado)',
+              },
+              suggestedBillingsStamp: {
+                type: Type.STRING,
+                description: 'Selo sugerido: "Branco com bebê", "Verde", "Amarelo", "Vermelho" ou "Ápice sob observação"',
+              },
+              billingsGoldenRule: {
+                type: Type.STRING,
+                description: 'Lembrete essencial sobre a supremacia da sensação vulvar no Método Billings',
+              },
+              clinicalObservations: {
+                type: Type.STRING,
+                description: 'Análise detalhada e reflexão sobre a evolução do ciclo',
+              },
+              infectionRiskAlert: {
+                type: Type.BOOLEAN,
+                description: 'Verdadeiro se houver qualquer suspeita de corrimento anormal ou infecção',
+              },
+              infectionNotes: {
+                type: Type.STRING,
+                description: 'Observações ou orientações sobre saúde vaginal / infecção se houver',
+              },
+              recommendation: {
+                type: Type.STRING,
+                description: 'Recomendação prática para o dia de hoje segundo o Método Billings',
+              },
+            },
+            required: [
+              'consistencyClassification',
+              'appearanceDescription',
+              'visualFertilityTendency',
+              'suggestedBillingsStamp',
+              'billingsGoldenRule',
+              'clinicalObservations',
+              'infectionRiskAlert',
+              'recommendation',
+            ],
+          },
+        },
+      })
+    );
 
-    const parsedData = JSON.parse(response.text || '{}');
+    const parsedData = JSON.parse(cleanJsonString(response.text || '{}'));
     return res.json({
       success: true,
       analysis: parsedData,
@@ -148,6 +182,7 @@ app.post('/api/clinical-summary', async (req, res) => {
       return res.status(500).json({ error: 'Chave da API Gemini não configurada.' });
     }
 
+    const ai = getAiClient();
     const summaryPrompt = `
 Você é um médico ginecologista e instrutor sênior credenciado pela WOOMB International.
 Elabore um parecer clínico conciso e formal em português para compor o Relatório Mensal do Método de Ovulação Billings.
@@ -166,32 +201,34 @@ Por favor, forneça em JSON estruturado:
 5. "recommendations": recomendações de conduta para o próximo ciclo de acordo com o objetivo da paciente.
 `;
 
-    const response = await ai.models.generateContent({
-      model: 'gemini-3.8-flash',
-      contents: summaryPrompt,
-      config: {
-        responseMimeType: 'application/json',
-        responseSchema: {
-          type: Type.OBJECT,
-          properties: {
-            cycleOverview: { type: Type.STRING },
-            peakEvaluation: { type: Type.STRING },
-            lutealPhaseSufficiency: { type: Type.STRING },
-            instructorNotes: { type: Type.STRING },
-            recommendations: { type: Type.STRING },
+    const response = await generateWithFallback((model) =>
+      ai.models.generateContent({
+        model,
+        contents: summaryPrompt,
+        config: {
+          responseMimeType: 'application/json',
+          responseSchema: {
+            type: Type.OBJECT,
+            properties: {
+              cycleOverview: { type: Type.STRING },
+              peakEvaluation: { type: Type.STRING },
+              lutealPhaseSufficiency: { type: Type.STRING },
+              instructorNotes: { type: Type.STRING },
+              recommendations: { type: Type.STRING },
+            },
+            required: [
+              'cycleOverview',
+              'peakEvaluation',
+              'lutealPhaseSufficiency',
+              'instructorNotes',
+              'recommendations',
+            ],
           },
-          required: [
-            'cycleOverview',
-            'peakEvaluation',
-            'lutealPhaseSufficiency',
-            'instructorNotes',
-            'recommendations',
-          ],
         },
-      },
-    });
+      })
+    );
 
-    const parsed = JSON.parse(response.text || '{}');
+    const parsed = JSON.parse(cleanJsonString(response.text || '{}'));
     return res.json({ success: true, summary: parsed });
   } catch (error: any) {
     console.error('Error generating clinical summary:', error);
@@ -215,6 +252,7 @@ app.post('/api/chat', async (req, res) => {
       return res.status(500).json({ error: 'Chave da API Gemini não configurada no servidor.' });
     }
 
+    const ai = getAiClient();
     const systemInstruction = `
 Você é a "Assistente Especialista Billings", uma educadora em saúde reprodutiva e no Método de Ovulação Billings (MOB / WOOMB International).
 Sua missão é tirar dúvidas dos usuários sobre o Método Billings, sobre o funcionamento do aplicativo Billings Life, sobre a identificação do Padrão Básico de Infertilidade (PBI), a Regra do Ápice, as 4 Regras oficiais, interpretação dos selos e acompanhamento ginecológico.
@@ -238,20 +276,21 @@ Contexto da Usuária atual no app:
 `;
 
     // Format chat contents for Gemini SDK
-    // Convert array of { role: 'user' | 'model' | 'assistant', text: string }
     const contents = messages.map((m: any) => ({
       role: m.role === 'assistant' || m.role === 'model' ? 'model' : 'user',
       parts: [{ text: m.text || m.content || '' }],
     }));
 
-    const response = await ai.models.generateContent({
-      model: 'gemini-3.8-flash',
-      contents: contents,
-      config: {
-        systemInstruction: systemInstruction,
-        temperature: 0.7,
-      },
-    });
+    const response = await generateWithFallback((model) =>
+      ai.models.generateContent({
+        model,
+        contents,
+        config: {
+          systemInstruction,
+          temperature: 0.7,
+        },
+      })
+    );
 
     const replyText = response.text || 'Desculpe, não consegui processar a resposta no momento.';
 

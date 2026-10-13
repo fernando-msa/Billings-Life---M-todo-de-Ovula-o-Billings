@@ -1,4 +1,4 @@
-import { Cycle, DailyLog, ClinicalProfile } from '../types/billings';
+import { Cycle, DailyLog, ClinicalProfile, AutoBackupMetadata, AutoBackupSnapshot } from '../types/billings';
 import { recalculateCyclePhases, suggestStampType } from './billingsEngine';
 
 const STORAGE_KEYS = {
@@ -6,6 +6,9 @@ const STORAGE_KEYS = {
   PROFILE: 'billings_profile_v1',
   ACTIVE_CYCLE: 'billings_active_cycle_id_v1',
   REMINDER: 'billings_reminder_config_v1',
+  AUTO_BACKUP: 'billings_auto_backup_json_v1',
+  AUTO_BACKUP_META: 'billings_auto_backup_meta_v1',
+  AUTO_BACKUP_HISTORY: 'billings_auto_backup_history_v1',
 };
 
 export const DEFAULT_REMINDER_CONFIG: import('../types/billings').DailyReminderConfig = {
@@ -297,6 +300,8 @@ export function getClinicalProfile(): ClinicalProfile {
 export function saveClinicalProfile(profile: ClinicalProfile): void {
   try {
     localStorage.setItem(STORAGE_KEYS.PROFILE, JSON.stringify(profile));
+    const cycles = getCycles();
+    createAutoBackupSnapshot(cycles, profile);
   } catch (e) {
     console.error('Failed saving clinical profile to localStorage:', e);
   }
@@ -388,6 +393,10 @@ export function upsertDailyLog(
   saveCycles(cycles);
 
   const updatedLog = recalculated.find((l) => l.date === logData.date)!;
+
+  // Automatically create persistent JSON backup on every daily log change
+  createAutoBackupSnapshot(cycles, profile, updatedLog.date);
+
   return { cycles, updatedLog };
 }
 
@@ -435,6 +444,10 @@ export function startNewCycle(firstDayDateStr: string): Cycle[] {
 
   cycles.push(newCycle);
   saveCycles(cycles);
+
+  // Automatically create persistent JSON backup on new cycle
+  createAutoBackupSnapshot(cycles, profile, firstDayDateStr);
+
   return cycles;
 }
 
@@ -626,5 +639,192 @@ export async function triggerNotification(title: string, body: string, soundEnab
     }
   }
   return false;
+}
+
+/**
+ * Automatically creates and persists an exported JSON snapshot of the user's progress
+ * whenever any daily log or cycle data is modified.
+ */
+export function createAutoBackupSnapshot(
+  cycles: Cycle[],
+  profile: ClinicalProfile,
+  modifiedDate?: string
+): AutoBackupMetadata {
+  const now = new Date();
+  const timestamp = now.toISOString();
+  const formattedTime = now.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit', second: '2-digit' });
+
+  const totalLogs = cycles.reduce((acc, c) => acc + c.logs.length, 0);
+
+  const payload = {
+    app: 'Billings Life - Método de Ovulação Billings',
+    backupType: 'AUTOMATIC_PERSISTENT_SNAPSHOT',
+    version: '2.0.0',
+    exportDate: timestamp,
+    lastModifiedLogDate: modifiedDate,
+    clinicalProfile: profile,
+    cycles: cycles,
+  };
+
+  const jsonStr = JSON.stringify(payload, null, 2);
+  const sizeBytes = new Blob([jsonStr]).size;
+
+  const currentMeta = getAutoBackupMetadata();
+  const autoDownloadFileEnabled = currentMeta?.autoDownloadFileEnabled ?? false;
+
+  const metadata: AutoBackupMetadata = {
+    lastBackupDate: timestamp,
+    formattedTime,
+    cyclesCount: cycles.length,
+    totalLogsCount: totalLogs,
+    lastModifiedLogDate: modifiedDate,
+    sizeBytes,
+    autoDownloadFileEnabled,
+  };
+
+  try {
+    // 1. Save latest JSON backup in local storage
+    localStorage.setItem(STORAGE_KEYS.AUTO_BACKUP, jsonStr);
+    // 2. Save metadata
+    localStorage.setItem(STORAGE_KEYS.AUTO_BACKUP_META, JSON.stringify(metadata));
+
+    // 3. Maintain rolling history of snapshots (up to 10)
+    const rawHistory = localStorage.getItem(STORAGE_KEYS.AUTO_BACKUP_HISTORY);
+    let history: AutoBackupSnapshot[] = rawHistory ? JSON.parse(rawHistory) : [];
+
+    const newSnapshot: AutoBackupSnapshot = {
+      id: `snapshot-${Date.now()}`,
+      timestamp,
+      formattedTime,
+      cyclesCount: cycles.length,
+      totalLogsCount: totalLogs,
+      lastModifiedLogDate: modifiedDate,
+      jsonContent: jsonStr,
+    };
+
+    history = [newSnapshot, ...history.slice(0, 9)];
+    localStorage.setItem(STORAGE_KEYS.AUTO_BACKUP_HISTORY, JSON.stringify(history));
+
+    // 4. If auto-download file setting is enabled, trigger client file download
+    if (autoDownloadFileEnabled && typeof window !== 'undefined') {
+      const blob = new Blob([jsonStr], { type: 'application/json' });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `backup_automatico_billings_${now.toISOString().split('T')[0]}_${now.getHours()}h${now.getMinutes()}.json`;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      URL.revokeObjectURL(url);
+    }
+  } catch (e) {
+    console.error('Failed saving auto backup snapshot to localStorage:', e);
+  }
+
+  return metadata;
+}
+
+/**
+ * Retrieves the latest auto-backup metadata
+ */
+export function getAutoBackupMetadata(): AutoBackupMetadata | null {
+  try {
+    const raw = localStorage.getItem(STORAGE_KEYS.AUTO_BACKUP_META);
+    if (raw) {
+      return JSON.parse(raw);
+    }
+  } catch (e) {
+    console.error('Failed reading auto backup metadata:', e);
+  }
+  return null;
+}
+
+/**
+ * Retrieves raw JSON string of the latest auto-backup
+ */
+export function getLatestAutoBackupJSON(): string | null {
+  try {
+    return localStorage.getItem(STORAGE_KEYS.AUTO_BACKUP);
+  } catch (e) {
+    console.error('Failed reading auto backup JSON:', e);
+    return null;
+  }
+}
+
+/**
+ * Downloads the latest automatic JSON backup as a file
+ */
+export function downloadLatestAutoBackup(): boolean {
+  const jsonStr = getLatestAutoBackupJSON();
+  if (!jsonStr) return false;
+
+  const now = new Date();
+  const blob = new Blob([jsonStr], { type: 'application/json' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = `backup_automatico_billings_${now.toISOString().split('T')[0]}_${now.getHours()}h${now.getMinutes()}.json`;
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
+  URL.revokeObjectURL(url);
+  return true;
+}
+
+/**
+ * Retrieves rolling snapshots history
+ */
+export function getAutoBackupSnapshots(): AutoBackupSnapshot[] {
+  try {
+    const raw = localStorage.getItem(STORAGE_KEYS.AUTO_BACKUP_HISTORY);
+    if (raw) {
+      return JSON.parse(raw);
+    }
+  } catch (e) {
+    console.error('Failed reading auto backup snapshots history:', e);
+  }
+  return [];
+}
+
+/**
+ * Restores all cycles and profile from a specific snapshot
+ */
+export function restoreFromSnapshot(snapshotId: string): { success: boolean; message: string } {
+  try {
+    const snapshots = getAutoBackupSnapshots();
+    const target = snapshots.find((s) => s.id === snapshotId);
+    if (!target) {
+      throw new Error('Snapshot não encontrado.');
+    }
+
+    const data = JSON.parse(target.jsonContent);
+    if (!data.clinicalProfile || !data.cycles) {
+      throw new Error('Dados de snapshot corrompidos.');
+    }
+
+    saveClinicalProfile(data.clinicalProfile);
+    saveCycles(data.cycles);
+
+    return {
+      success: true,
+      message: `Restaurado com sucesso para a versão de ${target.formattedTime} (${new Date(target.timestamp).toLocaleDateString('pt-BR')})!`,
+    };
+  } catch (e: any) {
+    return {
+      success: false,
+      message: `Falha ao restaurar: ${e.message}`,
+    };
+  }
+}
+
+/**
+ * Toggles auto file download on or off
+ */
+export function setAutoDownloadFileSetting(enabled: boolean): void {
+  const meta = getAutoBackupMetadata();
+  if (meta) {
+    meta.autoDownloadFileEnabled = enabled;
+    localStorage.setItem(STORAGE_KEYS.AUTO_BACKUP_META, JSON.stringify(meta));
+  }
 }
 

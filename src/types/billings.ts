@@ -117,3 +117,24 @@ export interface FertilityAlert {
   coitusRecommendation: string;
   badgeColor: 'emerald' | 'rose' | 'amber' | 'blue' | 'purple';
 }
+
+export interface AutoBackupMetadata {
+  lastBackupDate: string; // ISO string
+  formattedTime: string;
+  cyclesCount: number;
+  totalLogsCount: number;
+  lastModifiedLogDate?: string;
+  sizeBytes: number;
+  autoDownloadFileEnabled: boolean;
+}
+
+export interface AutoBackupSnapshot {
+  id: string;
+  timestamp: string;
+  formattedTime: string;
+  cyclesCount: number;
+  totalLogsCount: number;
+  lastModifiedLogDate?: string;
+  jsonContent: string;
+}
+

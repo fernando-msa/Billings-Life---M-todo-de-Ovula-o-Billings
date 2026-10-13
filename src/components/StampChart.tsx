@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useRef } from 'react';
 import {
   ChevronLeft,
   ChevronRight,
@@ -12,6 +12,7 @@ import {
   Moon,
   Sun,
   Flame,
+  ArrowRight,
 } from 'lucide-react';
 import { Cycle, DailyLog, ClinicalProfile } from '../types/billings';
 import {
@@ -45,14 +46,15 @@ export const StampChart: React.FC<StampChartProps> = ({
   const [selectedDayLog, setSelectedDayLog] = useState<DailyLog | null>(
     currentCycle?.logs[currentCycle.logs.length - 1] || null
   );
+  const tapeScrollRef = useRef<HTMLDivElement>(null);
 
   if (!currentCycle) {
     return (
-      <div className="bg-white p-8 rounded-xl border border-slate-200 text-center">
-        <p className="text-slate-600">Nenhum ciclo encontrado.</p>
+      <div className="bg-white p-8 rounded-2xl border border-stone-200 text-center space-y-3">
+        <p className="text-stone-600 text-sm">Nenhum ciclo encontrado.</p>
         <button
           onClick={onStartNewCycle}
-          className="mt-4 px-4 py-2 bg-emerald-700 text-white rounded-lg text-sm font-semibold"
+          className="px-5 py-2.5 bg-[#1B4332] text-white rounded-xl text-xs font-bold shadow-xs cursor-pointer"
         >
           Iniciar Primeiro Ciclo
         </button>
@@ -66,41 +68,48 @@ export const StampChart: React.FC<StampChartProps> = ({
   const totalDays = logs.length;
   const follicularLength = peakLog ? peakLog.cycleDay : null;
   const lutealLength = peakLog && currentCycle.isFinished ? totalDays - peakLog.cycleDay : null;
-  const fertileDaysCount = logs.filter(
-    (l) => l.stamp === 'white_baby' || l.stamp === 'yellow_baby' || l.isPeak
-  ).length;
+
+  const scrollToLatestDay = () => {
+    if (tapeScrollRef.current) {
+      tapeScrollRef.current.scrollTo({
+        left: tapeScrollRef.current.scrollWidth,
+        behavior: 'smooth',
+      });
+    }
+  };
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-5 sm:space-y-6">
       {/* Cycle Selector Header & Export */}
-      <div className="bg-white rounded-xl border border-slate-200 p-5 shadow-xs flex flex-wrap items-center justify-between gap-4">
+      <div className="bg-white rounded-2xl border border-stone-200/90 p-4 sm:p-5 shadow-[0_2px_8px_rgba(28,61,47,0.03)] flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div className="flex items-center gap-3">
-          <div className="p-2.5 bg-emerald-50 text-emerald-800 rounded-lg">
-            <Calendar className="w-5 h-5" />
+          <div className="w-10 h-10 rounded-xl bg-emerald-50 text-[#1B4332] flex items-center justify-center shrink-0 border border-emerald-200/60">
+            <Calendar className="w-5 h-5 text-[#1B4332]" />
           </div>
           <div>
-            <div className="flex items-center gap-2">
-              <h2 className="text-lg font-bold text-slate-900">
+            <div className="flex items-center gap-2 flex-wrap">
+              <h2 className="text-base sm:text-lg font-serif font-bold text-stone-900 leading-none">
                 Ciclo #{currentCycle.cycleNumber}
               </h2>
               {currentCycle.isFinished ? (
-                <span className="text-xs text-slate-500 font-medium">· Concluído ({logs.length} dias)</span>
+                <span className="text-[11px] text-stone-500 font-medium">· Concluído ({logs.length} dias)</span>
               ) : (
-                <span className="text-xs text-emerald-700 font-semibold bg-emerald-50 px-2 py-0.5 rounded-sm">
+                <span className="text-[11px] text-[#1B4332] font-bold bg-emerald-50 px-2 py-0.5 rounded-md border border-emerald-200/70">
                   Em Andamento (D{logs.length})
                 </span>
               )}
             </div>
-            <p className="text-xs text-slate-500">
-              Início em {new Date(currentCycle.startDate).toLocaleDateString('pt-BR')}
-              {currentCycle.endDate && ` · Término em ${new Date(currentCycle.endDate).toLocaleDateString('pt-BR')}`}
+            <p className="text-[11px] text-stone-500 mt-1">
+              Início: {new Date(currentCycle.startDate).toLocaleDateString('pt-BR')}
+              {currentCycle.endDate && ` · Fim: ${new Date(currentCycle.endDate).toLocaleDateString('pt-BR')}`}
             </p>
           </div>
         </div>
 
-        {/* Cycle Switcher Tabs */}
-        <div className="flex items-center gap-2">
-          <div className="flex items-center gap-1 p-1 bg-slate-100 rounded-lg">
+        {/* Cycle Switcher Tabs & Tools */}
+        <div className="flex flex-wrap items-center gap-2">
+          {/* Cycle selector pill */}
+          <div className="flex items-center gap-1 p-1 bg-stone-100 rounded-xl overflow-x-auto max-w-full">
             {cycles.map((c) => (
               <button
                 key={c.id}
@@ -108,10 +117,10 @@ export const StampChart: React.FC<StampChartProps> = ({
                   onSelectCycle(c.id);
                   setSelectedDayLog(c.logs[c.logs.length - 1] || null);
                 }}
-                className={`px-3 py-1.5 text-xs font-medium rounded-md transition-colors cursor-pointer ${
+                className={`px-3 py-1.5 text-xs font-medium rounded-lg transition-colors cursor-pointer whitespace-nowrap ${
                   c.id === currentCycle.id
-                    ? 'bg-white text-slate-900 shadow-xs font-semibold'
-                    : 'text-slate-600 hover:text-slate-900'
+                    ? 'bg-white text-stone-900 shadow-xs font-bold'
+                    : 'text-stone-600 hover:text-stone-900'
                 }`}
               >
                 Ciclo {c.cycleNumber} {c.isFinished ? '' : '(Atual)'}
@@ -119,98 +128,116 @@ export const StampChart: React.FC<StampChartProps> = ({
             ))}
           </div>
 
-          <button
-            onClick={() => exportCycleToCSV(currentCycle, profile)}
-            title="Exportar dados deste ciclo em planilha CSV"
-            className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium text-slate-700 bg-white border border-slate-200 hover:bg-slate-50 rounded-lg transition-colors cursor-pointer"
-          >
-            <FileSpreadsheet className="w-3.5 h-3.5 text-slate-500" />
-            <span className="hidden sm:inline">Exportar CSV</span>
-          </button>
+          <div className="flex items-center gap-2">
+            <button
+              onClick={() => exportCycleToCSV(currentCycle, profile)}
+              title="Exportar dados deste ciclo em planilha CSV"
+              className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold text-stone-700 bg-white border border-stone-200 hover:bg-stone-50 rounded-xl transition-colors cursor-pointer"
+            >
+              <FileSpreadsheet className="w-3.5 h-3.5 text-stone-500" />
+              <span className="hidden sm:inline">Exportar CSV</span>
+            </button>
 
-          <button
-            onClick={onStartNewCycle}
-            title="Registrar início de nova menstruação"
-            className="inline-flex items-center gap-1 px-3 py-1.5 text-xs font-medium text-white bg-slate-900 hover:bg-slate-800 rounded-lg shadow-xs transition-colors cursor-pointer"
-          >
-            <Plus className="w-3.5 h-3.5" />
-            <span>Novo Ciclo</span>
-          </button>
+            <button
+              onClick={onStartNewCycle}
+              title="Registrar início de nova menstruação"
+              className="inline-flex items-center gap-1 px-3 py-1.5 text-xs font-bold text-white bg-stone-900 hover:bg-stone-800 rounded-xl shadow-xs transition-colors cursor-pointer whitespace-nowrap"
+            >
+              <Plus className="w-3.5 h-3.5" />
+              <span>Novo Ciclo</span>
+            </button>
+          </div>
         </div>
       </div>
 
       {/* Cycle Scientific KPIs */}
-      <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
-        <div className="bg-white p-4 rounded-xl border border-slate-200">
-          <span className="text-xs uppercase tracking-wider text-slate-400 block mb-1">Duração Atual</span>
+      <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">
+        <div className="bg-white p-3.5 sm:p-4 rounded-2xl border border-stone-200/90 shadow-2xs">
+          <span className="text-[11px] uppercase tracking-wider font-bold text-stone-400 block mb-1">Duração Atual</span>
           <div className="flex items-baseline gap-1">
-            <span className="text-2xl font-bold font-mono tabular-nums text-slate-900">{totalDays}</span>
-            <span className="text-xs text-slate-500 font-mono">dias</span>
+            <span className="text-xl sm:text-2xl font-bold font-mono tabular-nums text-stone-900">{totalDays}</span>
+            <span className="text-xs text-stone-500 font-mono">dias</span>
           </div>
-          <span className="text-[11px] text-slate-500 mt-1 block">
+          <span className="text-[10px] text-stone-500 mt-1 block truncate">
             {currentCycle.isFinished ? 'Ciclo finalizado' : 'Registro em curso'}
           </span>
         </div>
 
-        <div className="bg-white p-4 rounded-xl border border-slate-200">
-          <span className="text-xs uppercase tracking-wider text-slate-400 block mb-1">Dia do Ápice</span>
+        <div className="bg-white p-3.5 sm:p-4 rounded-2xl border border-stone-200/90 shadow-2xs">
+          <span className="text-[11px] uppercase tracking-wider font-bold text-stone-400 block mb-1">Dia do Ápice</span>
           <div className="flex items-baseline gap-1">
-            <span className="text-2xl font-bold font-mono tabular-nums text-rose-600">
+            <span className="text-xl sm:text-2xl font-bold font-mono tabular-nums text-rose-700">
               {peakLog ? `D${peakLog.cycleDay}` : '—'}
             </span>
-            {peakLog && <span className="text-xs text-slate-500 font-mono">({new Date(peakLog.date).toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit' })})</span>}
+            {peakLog && (
+              <span className="text-[11px] text-stone-500 font-mono">
+                ({new Date(peakLog.date).toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit' })})
+              </span>
+            )}
           </div>
-          <span className="text-[11px] text-slate-500 mt-1 block">
-            {peakLog ? 'Ovulação confirmada' : 'Ainda não identificado'}
+          <span className="text-[10px] text-stone-500 mt-1 block truncate">
+            {peakLog ? 'Ovulação confirmada' : 'Aguardando ápice'}
           </span>
         </div>
 
-        <div className="bg-white p-4 rounded-xl border border-slate-200">
-          <span className="text-xs uppercase tracking-wider text-slate-400 block mb-1">Fase Folicular</span>
+        <div className="bg-white p-3.5 sm:p-4 rounded-2xl border border-stone-200/90 shadow-2xs">
+          <span className="text-[11px] uppercase tracking-wider font-bold text-stone-400 block mb-1">Fase Folicular</span>
           <div className="flex items-baseline gap-1">
-            <span className="text-2xl font-bold font-mono tabular-nums text-slate-900">
+            <span className="text-xl sm:text-2xl font-bold font-mono tabular-nums text-stone-900">
               {follicularLength ? follicularLength : '—'}
             </span>
-            <span className="text-xs text-slate-500 font-mono">dias até ápice</span>
+            <span className="text-xs text-stone-500 font-mono">dias</span>
           </div>
-          <span className="text-[11px] text-slate-500 mt-1 block">
+          <span className="text-[10px] text-stone-500 mt-1 block truncate">
             {follicularLength ? 'Maturação folicular' : 'Em observação'}
           </span>
         </div>
 
-        <div className="bg-white p-4 rounded-xl border border-slate-200">
-          <span className="text-xs uppercase tracking-wider text-slate-400 block mb-1">Fase Lútea</span>
+        <div className="bg-white p-3.5 sm:p-4 rounded-2xl border border-stone-200/90 shadow-2xs">
+          <span className="text-[11px] uppercase tracking-wider font-bold text-stone-400 block mb-1">Fase Lútea</span>
           <div className="flex items-baseline gap-1">
-            <span className="text-2xl font-bold font-mono tabular-nums text-emerald-700">
-              {lutealLength ? lutealLength : peakLog ? `${totalDays - peakLog.cycleDay} (em curso)` : '—'}
+            <span className="text-xl sm:text-2xl font-bold font-mono tabular-nums text-emerald-800">
+              {lutealLength ? lutealLength : peakLog ? `${totalDays - peakLog.cycleDay}` : '—'}
             </span>
-            <span className="text-xs text-slate-500 font-mono">dias</span>
+            <span className="text-xs text-stone-500 font-mono">dias</span>
           </div>
-          <span className="text-[11px] text-slate-500 mt-1 block">
+          <span className="text-[10px] text-stone-500 mt-1 block truncate">
             {lutealLength && lutealLength < 10
               ? 'Atenção: fase lútea curta (<10d)'
-              : 'Ideal: 11 a 16 dias de progesterona'}
+              : 'Ideal: 11 a 16 dias'}
           </span>
         </div>
       </div>
 
       {/* Official Billings Horizontal Stamp Chart */}
-      <div className="bg-white rounded-xl border border-slate-200 p-5 shadow-xs">
-        <div className="flex items-center justify-between mb-3">
-          <div className="flex items-center gap-2">
-            <h3 className="text-sm font-bold text-slate-900">
-              Gráfico de Selos Clínicos (Padrão WOOMB International)
+      <div className="bg-white rounded-2xl border border-stone-200/90 p-4 sm:p-5 shadow-[0_2px_8px_rgba(28,61,47,0.03)]">
+        <div className="flex items-center justify-between mb-3 flex-wrap gap-2">
+          <div>
+            <h3 className="text-sm font-serif font-bold text-stone-900">
+              Fita de Selos Clínicos (Padrão WOOMB)
             </h3>
-            <span className="text-xs text-slate-400">· Clique em qualquer selo para inspecionar</span>
+            <span className="text-[11px] text-stone-400">
+              Toque em qualquer selo para inspecionar ou editar
+            </span>
           </div>
-          <span className="text-xs text-slate-500 font-mono">
-            {logs.length} dias registrados
-          </span>
+
+          <div className="flex items-center gap-2">
+            <button
+              onClick={scrollToLatestDay}
+              className="text-[11px] font-semibold text-[#1B4332] hover:underline cursor-pointer inline-flex items-center gap-1"
+            >
+              <span>Ir para hoje</span>
+              <ArrowRight className="w-3 h-3" />
+            </button>
+            <span className="text-[11px] text-stone-400 font-mono">
+              {logs.length} dias
+            </span>
+          </div>
         </div>
 
         {/* Scrollable Horizontal Tape of Stamps */}
-        <div className="overflow-x-auto pb-4 custom-scrollbar">
-          <div className="inline-flex gap-1.5 min-w-full py-2">
+        <div ref={tapeScrollRef} className="overflow-x-auto pb-3 custom-scrollbar touch-scroll">
+          <div className="inline-flex gap-1.5 min-w-full py-1">
             {logs.map((log) => {
               const stampInfo = STAMP_DETAILS[log.stamp];
               const isSelected = selectedDayLog?.id === log.id;
@@ -219,27 +246,27 @@ export const StampChart: React.FC<StampChartProps> = ({
                 <button
                   key={log.id}
                   onClick={() => setSelectedDayLog(log)}
-                  className={`flex flex-col items-center w-14 shrink-0 rounded-lg p-1.5 transition-all cursor-pointer border ${
+                  className={`flex flex-col items-center w-13 sm:w-14 shrink-0 rounded-xl p-1.5 transition-all cursor-pointer border ${
                     isSelected
-                      ? 'border-slate-900 ring-2 ring-slate-900/10 shadow-sm bg-slate-50'
-                      : 'border-slate-200 hover:border-slate-400 bg-white'
+                      ? 'border-[#1B4332] ring-2 ring-[#1B4332]/15 shadow-sm bg-emerald-50/40'
+                      : 'border-stone-200 hover:border-stone-300 bg-white'
                   }`}
                 >
                   {/* Cycle Day header */}
-                  <span className="text-[11px] font-mono font-bold text-slate-700 mb-1">
+                  <span className="text-[10px] font-mono font-bold text-stone-700 mb-1">
                     D{log.cycleDay}
                   </span>
 
                   {/* Stamp Graphic */}
                   <div
-                    className={`w-11 h-16 rounded-md ${stampInfo.bg} flex flex-col items-center justify-center relative shadow-xs border ${
-                      log.stamp === 'white_baby' ? 'border-slate-300' : 'border-transparent'
+                    className={`w-10 sm:w-11 h-14 sm:h-16 rounded-md ${stampInfo.bg} flex flex-col items-center justify-center relative shadow-2xs border ${
+                      log.stamp === 'white_baby' ? 'border-stone-300' : 'border-transparent'
                     }`}
                   >
                     {/* Peak X mark */}
                     {log.isPeak && (
                       <div className="absolute inset-0 flex items-center justify-center">
-                        <span className="text-3xl font-black text-rose-700 leading-none drop-shadow-xs">
+                        <span className="text-2xl sm:text-3xl font-black text-rose-700 leading-none drop-shadow-xs">
                           X
                         </span>
                       </div>
@@ -248,7 +275,7 @@ export const StampChart: React.FC<StampChartProps> = ({
                     {/* Post-peak numbers 1, 2, 3 */}
                     {log.postPeakCount && (
                       <div className="absolute inset-0 flex items-center justify-center">
-                        <span className="text-2xl font-black text-slate-900 leading-none">
+                        <span className="text-xl sm:text-2xl font-black text-stone-900 leading-none">
                           {log.postPeakCount}
                         </span>
                       </div>
@@ -257,7 +284,7 @@ export const StampChart: React.FC<StampChartProps> = ({
                     {/* Interruption count */}
                     {log.interruptionCount && !log.postPeakCount && (
                       <div className="absolute inset-0 flex items-center justify-center">
-                        <span className="text-lg font-black text-amber-900 leading-none">
+                        <span className="text-base font-black text-amber-900 leading-none">
                           i{log.interruptionCount}
                         </span>
                       </div>
@@ -265,27 +292,27 @@ export const StampChart: React.FC<StampChartProps> = ({
 
                     {/* Baby icon for fertile stamp */}
                     {(log.stamp === 'white_baby' || log.stamp === 'yellow_baby') && !log.isPeak && !log.postPeakCount && (
-                      <span className="text-lg select-none">👶</span>
+                      <span className="text-base select-none">👶</span>
                     )}
 
                     {/* Red blood drop for bleeding */}
                     {log.stamp === 'red' && (
-                      <span className="text-sm select-none">🩸</span>
+                      <span className="text-xs select-none">🩸</span>
                     )}
 
                     {/* Green leaf for dry */}
                     {log.stamp === 'green' && !log.postPeakCount && (
-                      <span className="text-sm select-none">🌿</span>
+                      <span className="text-xs select-none">🌿</span>
                     )}
 
                     {/* Yellow sun for BIP */}
                     {log.stamp === 'yellow_plain' && !log.postPeakCount && (
-                      <span className="text-sm select-none">☀️</span>
+                      <span className="text-xs select-none">☀️</span>
                     )}
                   </div>
 
                   {/* Coitus / Photo markers */}
-                  <div className="flex items-center gap-1 mt-1.5 h-4">
+                  <div className="flex items-center gap-1 mt-1.5 h-3.5">
                     {log.coitus === 'noite' && (
                       <span title="Relação à noite (Regra 2)" className="text-indigo-600">
                         <Moon className="w-3 h-3" />
@@ -304,12 +331,12 @@ export const StampChart: React.FC<StampChartProps> = ({
                   </div>
 
                   {/* Date footer */}
-                  <span className="text-[10px] font-mono text-slate-500 mt-0.5">
+                  <span className="text-[9px] font-mono text-stone-400 mt-0.5">
                     {new Date(log.date).toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit' })}
                   </span>
 
                   {/* Sensation preview */}
-                  <span className="text-[9px] text-slate-600 truncate max-w-full mt-0.5 text-center leading-tight">
+                  <span className="text-[9px] text-stone-600 truncate max-w-full mt-0.5 text-center leading-tight">
                     {log.sensation === 'seca' ? 'Seca' : log.sensation === 'lubrificada' ? 'Lubrif.' : log.sensation === 'escorregadia' ? 'Escorr.' : log.sensation === 'umida' ? 'Úmida' : log.sensation}
                   </span>
                 </button>
@@ -320,85 +347,63 @@ export const StampChart: React.FC<StampChartProps> = ({
 
         {/* Selected Day Clinical Detail Inspector */}
         {selectedDayLog && (
-          <div className="mt-4 pt-4 border-t border-slate-200 bg-slate-50/60 p-4 rounded-lg">
-            <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
+          <div className="mt-4 pt-4 border-t border-stone-200/80 bg-[#FAF8F5] p-4 rounded-xl">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
               <div>
-                <div className="flex items-center gap-2">
-                  <span className="text-sm font-bold text-slate-900">
+                <div className="flex items-center gap-2 flex-wrap">
+                  <span className="text-xs sm:text-sm font-bold text-stone-900">
                     Detalhes do Dia {selectedDayLog.cycleDay} (
                     {new Date(selectedDayLog.date).toLocaleDateString('pt-BR', {
-                      weekday: 'long',
+                      weekday: 'short',
                       day: 'numeric',
                       month: 'long',
                     })}
                     )
                   </span>
                   {selectedDayLog.isPeak && (
-                    <span className="px-2 py-0.5 text-xs font-bold bg-rose-100 text-rose-800 rounded-md">
+                    <span className="px-2 py-0.5 text-[11px] font-bold bg-rose-100 text-rose-800 rounded-md">
                       Dia Ápice (X)
                     </span>
                   )}
                   {selectedDayLog.postPeakCount && (
-                    <span className="px-2 py-0.5 text-xs font-bold bg-amber-100 text-amber-800 rounded-md">
-                      Contagem Pós-Ápice Dia {selectedDayLog.postPeakCount}/3
+                    <span className="px-2 py-0.5 text-[11px] font-bold bg-amber-100 text-amber-900 rounded-md">
+                      Pós-Ápice {selectedDayLog.postPeakCount}/3
                     </span>
                   )}
                 </div>
 
-                <div className="mt-2 grid grid-cols-2 sm:grid-cols-4 gap-x-6 gap-y-2 text-xs text-slate-700">
+                <div className="mt-2.5 grid grid-cols-2 sm:grid-cols-4 gap-3 text-xs text-stone-700">
                   <div>
-                    <span className="text-slate-400 block">Sensação Vulvar:</span>
-                    <strong className="text-slate-900">{SENSATION_LABELS[selectedDayLog.sensation].label}</strong>
+                    <span className="text-stone-400 block text-[11px]">Sensação:</span>
+                    <strong className="text-stone-900">{SENSATION_LABELS[selectedDayLog.sensation].label}</strong>
                   </div>
                   <div>
-                    <span className="text-slate-400 block">Aparência do Muco:</span>
-                    <strong className="text-slate-900">{APPEARANCE_LABELS[selectedDayLog.appearance].label}</strong>
+                    <span className="text-stone-400 block text-[11px]">Aparência:</span>
+                    <strong className="text-stone-900">{APPEARANCE_LABELS[selectedDayLog.appearance].label}</strong>
                   </div>
                   <div>
-                    <span className="text-slate-400 block">Sangramento:</span>
-                    <strong className="text-slate-900">{BLEEDING_LABELS[selectedDayLog.bleeding]}</strong>
+                    <span className="text-stone-400 block text-[11px]">Sangramento:</span>
+                    <strong className="text-stone-900">{BLEEDING_LABELS[selectedDayLog.bleeding]}</strong>
                   </div>
                   <div>
-                    <span className="text-slate-400 block">Relação Sexual:</span>
-                    <strong className="text-slate-900">
-                      {selectedDayLog.coitus === 'noite'
-                        ? 'Sim, à noite'
-                        : selectedDayLog.coitus === 'dia'
-                        ? 'Sim, durante o dia'
-                        : 'Nenhuma'}
+                    <span className="text-stone-400 block text-[11px]">Relação Sexual:</span>
+                    <strong className="text-stone-900">
+                      {selectedDayLog.coitus === 'noite' ? 'À noite (Regra 2)' : selectedDayLog.coitus === 'dia' ? 'Durante o dia' : 'Nenhuma'}
                     </strong>
                   </div>
                 </div>
 
                 {selectedDayLog.notes && (
-                  <p className="mt-2 text-xs text-slate-600 italic">
-                    Notas: &ldquo;{selectedDayLog.notes}&rdquo;
+                  <p className="mt-2 text-xs text-stone-600 bg-white p-2.5 rounded-lg border border-stone-200/80">
+                    <strong>Anotações:</strong> {selectedDayLog.notes}
                   </p>
-                )}
-
-                {selectedDayLog.photoUrl && (
-                  <div className="mt-3 flex items-center gap-3">
-                    <img
-                      src={selectedDayLog.photoUrl}
-                      alt="Foto do muco registrado"
-                      className="w-12 h-12 rounded-lg object-cover border border-slate-200"
-                    />
-                    <div className="text-xs">
-                      <span className="font-semibold text-slate-900 block">Foto de Muco Anexada</span>
-                      {selectedDayLog.photoAnalysis && (
-                        <span className="text-emerald-700">
-                          {selectedDayLog.photoAnalysis.consistencyClassification} · {selectedDayLog.photoAnalysis.visualFertilityTendency}
-                        </span>
-                      )}
-                    </div>
-                  </div>
                 )}
               </div>
 
-              <div className="flex items-center gap-2 shrink-0">
+              <div className="flex items-center gap-2 shrink-0 pt-2 sm:pt-0">
                 <button
                   onClick={() => onEditLog(selectedDayLog)}
-                  className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold text-slate-900 bg-white border border-slate-300 hover:bg-slate-100 rounded-lg shadow-xs transition-colors cursor-pointer"
+                  className="px-3.5 py-1.5 text-xs font-semibold text-stone-700 bg-white border border-stone-300 hover:bg-stone-50 rounded-xl transition-colors cursor-pointer inline-flex items-center gap-1.5"
                 >
                   <Edit2 className="w-3.5 h-3.5" />
                   <span>Editar Dia</span>
@@ -407,70 +412,6 @@ export const StampChart: React.FC<StampChartProps> = ({
             </div>
           </div>
         )}
-
-        {/* Official Billings WOOMB Legend */}
-        <div className="mt-6 pt-5 border-t border-slate-200">
-          <div className="flex items-center gap-1.5 mb-3 text-xs font-semibold uppercase tracking-wider text-slate-500">
-            <Info className="w-3.5 h-3.5 text-slate-400" />
-            <span>Legenda dos Selos Oficiais WOOMB</span>
-          </div>
-
-          <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-6 gap-3 text-xs">
-            <div className="flex items-start gap-2">
-              <span className="w-4 h-5 rounded-xs bg-rose-500 shrink-0 mt-0.5 shadow-xs" />
-              <div>
-                <strong className="block text-slate-800">Selo Vermelho</strong>
-                <span className="text-slate-500 text-[11px]">Sangramento menstrual ou spotting</span>
-              </div>
-            </div>
-
-            <div className="flex items-start gap-2">
-              <span className="w-4 h-5 rounded-xs bg-emerald-600 shrink-0 mt-0.5 shadow-xs" />
-              <div>
-                <strong className="block text-slate-800">Selo Verde</strong>
-                <span className="text-slate-500 text-[11px]">Secura / PBI de ausência de muco</span>
-              </div>
-            </div>
-
-            <div className="flex items-start gap-2">
-              <span className="w-4 h-5 rounded-xs bg-amber-400 shrink-0 mt-0.5 shadow-xs" />
-              <div>
-                <strong className="block text-slate-800">Selo Amarelo</strong>
-                <span className="text-slate-500 text-[11px]">PBI de muco constante e inalterado</span>
-              </div>
-            </div>
-
-            <div className="flex items-start gap-2">
-              <span className="w-4 h-5 rounded-xs bg-white border-2 border-slate-300 shrink-0 mt-0.5 flex items-center justify-center text-[10px]">
-                👶
-              </span>
-              <div>
-                <strong className="block text-slate-800">Branco c/ Bebê</strong>
-                <span className="text-slate-500 text-[11px]">Muco fértil / em evolução / lubrificado</span>
-              </div>
-            </div>
-
-            <div className="flex items-start gap-2">
-              <span className="w-4 h-5 rounded-xs bg-white border-2 border-rose-400 shrink-0 mt-0.5 flex items-center justify-center font-bold text-rose-700 text-xs">
-                X
-              </span>
-              <div>
-                <strong className="block text-slate-800">Símbolo do Ápice</strong>
-                <span className="text-slate-500 text-[11px]">Último dia de sensação escorregadia</span>
-              </div>
-            </div>
-
-            <div className="flex items-start gap-2">
-              <span className="w-4 h-5 rounded-xs bg-slate-200 shrink-0 mt-0.5 flex items-center justify-center font-bold text-slate-800 text-xs">
-                1 2 3
-              </span>
-              <div>
-                <strong className="block text-slate-800">Contagem Pós-Ápice</strong>
-                <span className="text-slate-500 text-[11px]">3 dias de sobrevida ovular e segurança</span>
-              </div>
-            </div>
-          </div>
-        </div>
       </div>
     </div>
   );
