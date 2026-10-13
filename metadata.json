@@ -1,0 +1,6 @@
+{
+  "name": "Billings Life - Método de Ovulação Billings",
+  "description": "Aplicativo clínico para registro do Método de Ovulação Billings (MOB), alertas de fertilidade personalizados, gráficos de ciclos, prontuário clínico exportável e análise inteligente de muco cervical.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
